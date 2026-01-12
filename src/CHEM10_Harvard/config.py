@@ -1,0 +1,1 @@
+# This module contains global configuration settings for the CHEM10 package.
