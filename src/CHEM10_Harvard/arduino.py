@@ -5,14 +5,24 @@ from telemetrix import telemetrix
 from pathlib import Path
 import json
 import numpy as np
+import threading
 import config
 
 class ArduinoBoard:
+    _instances_by_address = {}
+
     def __init__(self, address=None):
         self._arduino_board_spec = {"fqbn": "arduino:avr:uno", "address": address}
         self._path_to_telemetrix4arduino = (Path(__file__).resolve().parent / "files" / "Telemetrix4Arduino" )
         self._telemetrix_board = None
         self._setup_board()
+
+        # Ensure only one instance per address exists
+        if self._arduino_board_spec["address"] in self.__class__._instances_by_address:
+            raise Exception(f"An ArduinoBoard instance with address {self._arduino_board_spec['address']} already exists.")
+        self.__class__._instances_by_address[self._arduino_board_spec["address"]] = self
+
+        # Install Telemetrix4Arduino sketch if not already installed
         self._install_sketch()
 
     def _setup_board(self):
