@@ -42,19 +42,19 @@
 
 // This will allow SPI support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
-#define SPI_ENABLED 1
+// #define SPI_ENABLED 1
 
 // This will allow OneWire support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
-#define ONE_WIRE_ENABLED 1
+// #define ONE_WIRE_ENABLED 1
 
 // This will allow DHT support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
-#define DHT_ENABLED 1
+// #define DHT_ENABLED 1
 
 // This will allow sonar support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
-#define SONAR_ENABLED 1
+// #define SONAR_ENABLED 1
 
 // This will allow servo support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
@@ -62,11 +62,11 @@
 
 // This will allow stepper support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
-#define STEPPERS_ENABLED 1
+// #define STEPPERS_ENABLED 1
 
 // This will allow I2C support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
-#define I2C_ENABLED 1
+// #define I2C_ENABLED 1
 
 
 #include <Arduino.h>
