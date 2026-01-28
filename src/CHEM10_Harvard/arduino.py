@@ -68,11 +68,12 @@ class ArduinoBoard:
     @classmethod
     def _shutdown_all_boards(cls):
         for instance in cls._instances_by_address.values():
-            instance.shutdown_board()
+            instance.shutdown()
 
     # Factory for read callback function
     def _get_read_callback(self):
         def read_callback(data):
+            
             if data[0] == config.CB_ANALOG:
                 pin_type = "analog"
             elif data[0] == config.CB_DIGITAL:
@@ -152,9 +153,9 @@ class ArduinoBoard:
     def analog_read(self, pin):
         # Set pin mode to analog input if not already set
         if pin not in self._assigned_pints["analog_input"]:
-            self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback())
             self._assigned_pints["analog_input"].append(pin)
             self._read_cache["analog"][pin] = [None, int(time.time())]
+            self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback())
             time.sleep(0.1)  # Allow some time for the first reading to be available
 
         return self._read_cache["analog"][pin][0]
@@ -163,9 +164,9 @@ class ArduinoBoard:
     def digital_read(self, pin):
         # Set pin mode to digital input if not already set
         if pin not in self._assigned_pints["digital_input"]:
-            self._telemetrix_board.set_pin_mode_digital_input(pin, callback=self._get_read_callback())
             self._assigned_pints["digital_input"].append(pin)
             self._read_cache["digital"][pin] = [None, int(time.time())]
+            self._telemetrix_board.set_pin_mode_digital_input(pin, callback=self._get_read_callback())
             time.sleep(0.1)  # Allow some time for the first reading to be available
 
         return self._read_cache["digital"][pin][0]
@@ -220,7 +221,7 @@ class ArduinoBoard:
         
         self._telemetrix_board.servo_write(pin, angle)
 
-    def shutdown_board(self):
+    def shutdown(self):
         # Shutdown the telemetrix board connection
         if self._telemetrix_board is not None:
             self._telemetrix_board.shutdown()

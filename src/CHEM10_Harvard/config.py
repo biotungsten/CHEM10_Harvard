@@ -7,5 +7,5 @@ TELEMETRIX_FIRMWARE_VERSION = [5, 4, 4]
 SERVO_H_ALLOWED_PINS = [9, 10] 
 
 # Define Telemetrix4Arduino callback pin mode values
-CB_DIGITAL = 0
-CB_ANALOG = 2
+CB_DIGITAL = 2
+CB_ANALOG = 3
