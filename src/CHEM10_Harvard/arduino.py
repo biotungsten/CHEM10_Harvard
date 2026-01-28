@@ -5,20 +5,35 @@ from telemetrix import telemetrix
 from pathlib import Path
 import json
 import numpy as np
+import atexit 
+import sys
+import threading
+import time
 import threading
 from CHEM10_Harvard import config
 
 class ArduinoBoard:
+    _exception_hooks_set = False
     _instances_by_address = {}
-    # TODO: add global exception hook to shutdown all boards on uncaught exceptions
+    _default_exception_hook = None
+    _default_exception_hook_threading = None
+
     def __init__(self, address=None):
+        # Register exit and exception hooks
+        if not self.__class__._exception_hooks_set:
+            self.__class__.install_hooks()
+            self.__class__._exception_hooks_set = True
+
+        # Set up variables
         self._arduino_board_spec = {"fqbn": "arduino:avr:uno", "address": address}
         self._path_to_telemetrix4arduino = (Path(__file__).resolve().parent / "files" / "Telemetrix4Arduino" )
         self._telemetrix_board = None
         self._assigned_pints = {"digital_output": [], "digital_input": [], "analog_output": [], "analog_input": []}
+        
+        # This dictionary will hold cached read values and their timestamps for digital and analog pins that were registered as outputs.
         self._read_cache = {"digital": {}, "analog": {}}
-        #TODO: Implement reading. We need a object wide cache that is written to by callbacks from Telemetrix4Arduino
-        # Then upon a read command we read from that cache. We will require that on the first read we wait for the value to be populated.
+
+        # Get board data and set up arduino-cli
         self._setup_board()
 
         # Ensure only one instance per address exists
@@ -29,10 +44,46 @@ class ArduinoBoard:
         # Install Telemetrix4Arduino sketch if not already installed
         self._install_sketch()
     
-    def _read_callback(data):
-        pin_type = data[0]
-        pin_number = data[1]
+    @classmethod
+    def install_hooks(cls):
+        # Register shutdown function to be called at exit
+        atexit.register(cls._shutdown_all_boards)
 
+        # Handle uncaught exceptions
+        cls._default_exception_hook = sys.excepthook
+        def custom_exception_hook(exc_type, exc_value, exc_traceback):
+            cls._shutdown_all_boards()
+            if cls._default_exception_hook:
+                cls._default_exception_hook(exc_type, exc_value, exc_traceback)
+        sys.excepthook = custom_exception_hook
+
+        # Handle threading exceptions
+        cls._default_exception_hook_threading = getattr(threading, "excepthook", None)
+        if cls._default_exception_hook_threading:
+            def custom_threading_exception_hook(args):
+                cls._shutdown_all_boards()
+                cls._default_exception_hook_threading(args)
+            threading.excepthook = custom_threading_exception_hook
+
+    @classmethod
+    def _shutdown_all_boards(cls):
+        for instance in cls._instances_by_address.values():
+            instance.shutdown_board()
+
+    # Factory for read callback function
+    def _get_read_callback(self):
+        def read_callback(data):
+            if data[0] == config.CB_ANALOG:
+                pin_type = "analog"
+            elif data[0] == config.CB_DIGITAL:
+                pin_type = "digital"
+            else:
+                print(f"Unknown callback pin mode: {data[0]}")
+                return
+            pin_number = data[1]
+            self._read_cache[pin_type][pin_number][0] = data[2] # Set actual data value
+            self._read_cache[pin_type][pin_number][1] = data[3] # Set timestamp
+        return read_callback
 
     def _setup_board(self):
         try:
@@ -101,15 +152,23 @@ class ArduinoBoard:
     def analog_read(self, pin):
         # Set pin mode to analog input if not already set
         if pin not in self._assigned_pints["analog_input"]:
-            self._telemetrix_board.set_pin_mode_analog_input(pin)
+            self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback())
             self._assigned_pints["analog_input"].append(pin)
+            self._read_cache["analog"][pin] = [None, int(time.time())]
+            time.sleep(0.1)  # Allow some time for the first reading to be available
+
+        return self._read_cache["analog"][pin][0]
+
 
     def digital_read(self, pin):
         # Set pin mode to digital input if not already set
         if pin not in self._assigned_pints["digital_input"]:
-            self._telemetrix_board.set_pin_mode_digital_input(pin)
+            self._telemetrix_board.set_pin_mode_digital_input(pin, callback=self._get_read_callback())
             self._assigned_pints["digital_input"].append(pin)
-            self._
+            self._read_cache["digital"][pin] = [None, int(time.time())]
+            time.sleep(0.1)  # Allow some time for the first reading to be available
+
+        return self._read_cache["digital"][pin][0]
 
     def analog_write(self, pin, value):
         # Set pin mode to analog output if not already set
@@ -161,3 +220,8 @@ class ArduinoBoard:
         
         self._telemetrix_board.servo_write(pin, angle)
 
+    def shutdown_board(self):
+        # Shutdown the telemetrix board connection
+        if self._telemetrix_board is not None:
+            self._telemetrix_board.shutdown()
+            self._telemetrix_board = None
