@@ -6,15 +6,19 @@ from pathlib import Path
 import json
 import numpy as np
 import threading
-import config
+from CHEM10_Harvard import config
 
 class ArduinoBoard:
     _instances_by_address = {}
-
+    # TODO: add global exception hook to shutdown all boards on uncaught exceptions
     def __init__(self, address=None):
         self._arduino_board_spec = {"fqbn": "arduino:avr:uno", "address": address}
         self._path_to_telemetrix4arduino = (Path(__file__).resolve().parent / "files" / "Telemetrix4Arduino" )
         self._telemetrix_board = None
+        self._assigned_pints = {"digital_output": [], "digital_input": [], "analog_output": [], "analog_input": []}
+        self._read_cache = {"digital": {}, "analog": {}}
+        #TODO: Implement reading. We need a object wide cache that is written to by callbacks from Telemetrix4Arduino
+        # Then upon a read command we read from that cache. We will require that on the first read we wait for the value to be populated.
         self._setup_board()
 
         # Ensure only one instance per address exists
@@ -24,6 +28,11 @@ class ArduinoBoard:
 
         # Install Telemetrix4Arduino sketch if not already installed
         self._install_sketch()
+    
+    def _read_callback(data):
+        pin_type = data[0]
+        pin_number = data[1]
+
 
     def _setup_board(self):
         try:
@@ -32,7 +41,7 @@ class ArduinoBoard:
             subprocess.run(["arduino-cli", "core", "install", "arduino:avr"], check=True)
 
             # Install Servo library and check that it is installed
-            subprocess.run(["arduino-cli", "lib", "install", "\"Servo\""], check=True)
+            subprocess.run(["arduino-cli", "lib", "install", "Servo"], check=True)
             installed_libraries = subprocess.run(["arduino-cli", "lib", "list"], check=True, text=True, capture_output=True)
             if "Servo" not in installed_libraries.stdout:
                 raise Exception("Servo library installation failed.")
@@ -78,24 +87,77 @@ class ArduinoBoard:
     def _install_sketch(self):
         # Try to connect to the board; if it fails, compile and upload the Telemetrix4Arduino sketch
         try:
-            telemetrix_board = telemetrix.TelemetrixBoard(com_port=self._arduino_board_spec["address"])
+            telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"])
         except RuntimeError as e:
             subprocess.run(["arduino-cli", "compile", "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True)
             subprocess.run(["arduino-cli", "upload", "-p", self._arduino_board_spec["address"], "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True)
-            telemetrix_board = telemetrix.TelemetrixBoard(com_port=self._arduino_board_spec["address"])
+            telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"])
         self._telemetrix_board = telemetrix_board
 
         # Verify that the installed firmware version matches the expected version
         if self._telemetrix_board.firmware_version != config.TELEMETRIX_FIRMWARE_VERSION:
             raise Exception(f"There was a problem installing the Telemetrix4Arduino firmware on the Arduino board. (Firmware {self._telemetrix_board.firmware_version} detected, expected {config.TELEMETRIX_FIRMWARE_VERSION})")
 
-    def read(self, pin):
-        # Read value from specified pin, by passing to digital_read or analog_read as appropriate
-        pass
+    def analog_read(self, pin):
+        # Set pin mode to analog input if not already set
+        if pin not in self._assigned_pints["analog_input"]:
+            self._telemetrix_board.set_pin_mode_analog_input(pin)
+            self._assigned_pints["analog_input"].append(pin)
 
-    def write(self, pin, value):
-        # Write value to specified pin, by passing to digital_write or analog_write as appropriate
-        pass
+    def digital_read(self, pin):
+        # Set pin mode to digital input if not already set
+        if pin not in self._assigned_pints["digital_input"]:
+            self._telemetrix_board.set_pin_mode_digital_input(pin)
+            self._assigned_pints["digital_input"].append(pin)
+            self._
 
-    #TODO: Add servo control methods
-    # adafru.it/1449
+    def analog_write(self, pin, value):
+        # Set pin mode to analog output if not already set
+        if pin not in self._assigned_pints["analog_output"]:
+            self._telemetrix_board.set_pin_mode_analog_output(pin)
+            self._assigned_pints["analog_output"].append(pin)
+
+        # Ensure value is an integer between 0 and 255
+        if not isinstance(value, int):
+            print(f"Analog write value must be an integer (not {value}).")
+            return
+        if value < 0 or value > 255:
+            print(f"Analog write value must be between 0 and 255 (not {value}).")
+            return
+        
+        self._telemetrix_board.analog_write(pin, value)
+
+    def digital_write(self, pin, value):
+        # Set pin mode to digital output if not already set
+        if pin not in self._assigned_pints["digital_output"]:
+            self._telemetrix_board.set_pin_mode_digital_output(pin)
+            self._assigned_pints["digital_output"].append(pin)
+
+        # Ensure value is either 0 or 1
+        if value not in [0, 1]:
+            print(f"Digital write value must be 0 or 1 (not {value}).")
+            return
+        
+        self._telemetrix_board.digital_write(pin, value)
+
+    def initialize_servo(self, pin):
+        # Specify the control pin of the servo (usually yellow wire)
+
+        # Servo.h library only supports pins 9 and 10 on Arduino Uno
+        if pin not in config.SERVO_H_ALLOWED_PINS:
+            print(f"Servo control pin must be one of {config.SERVO_H_ALLOWED_PINS} (not {pin}).")
+            return
+        self._telemetrix_board.set_pin_mode_servo(pin, 700, 2300) #TODO: These are copied from Hiro's code; verify by hand, as there is no datahseet
+
+    def detach_servo(self, pin):
+        # Detach the servo from the control pin
+        self._telemetrix_board.servo_detach(pin)
+
+    def write_servo(self, pin, angle):
+        # Set the servo to the specified angle (0-180 degrees)
+        if angle < 0 or angle > 180:
+            print(f"Servo angle must be between 0 and 180 degrees (not {angle}).")
+            return
+        
+        self._telemetrix_board.servo_write(pin, angle)
+
