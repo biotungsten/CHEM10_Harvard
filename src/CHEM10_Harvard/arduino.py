@@ -6,6 +6,8 @@ from pathlib import Path
 import json
 import numpy as np
 import atexit 
+import traceback
+
 import sys
 import threading
 import time
@@ -13,16 +15,11 @@ import threading
 from CHEM10_Harvard import config
 
 class ArduinoBoard:
-    _exception_hooks_set = False
     _instances_by_address = {}
-    _default_exception_hook = None
-    _default_exception_hook_threading = None
-
+    # TODO: reduce wait time for arduino device reset
     def __init__(self, address=None):
-        # Register exit and exception hooks
-        if not self.__class__._exception_hooks_set:
-            self.__class__.install_hooks()
-            self.__class__._exception_hooks_set = True
+        # Register exit hook 
+        self.__class__.install_hooks()
 
         # Set up variables
         self._arduino_board_spec = {"fqbn": "arduino:avr:uno", "address": address}
@@ -49,26 +46,11 @@ class ArduinoBoard:
         # Register shutdown function to be called at exit
         atexit.register(cls._shutdown_all_boards)
 
-        # Handle uncaught exceptions
-        cls._default_exception_hook = sys.excepthook
-        def custom_exception_hook(exc_type, exc_value, exc_traceback):
-            cls._shutdown_all_boards()
-            if cls._default_exception_hook:
-                cls._default_exception_hook(exc_type, exc_value, exc_traceback)
-        sys.excepthook = custom_exception_hook
-
-        # Handle threading exceptions
-        cls._default_exception_hook_threading = getattr(threading, "excepthook", None)
-        if cls._default_exception_hook_threading:
-            def custom_threading_exception_hook(args):
-                cls._shutdown_all_boards()
-                cls._default_exception_hook_threading(args)
-            threading.excepthook = custom_threading_exception_hook
-
     @classmethod
     def _shutdown_all_boards(cls):
-        for instance in cls._instances_by_address.values():
-            instance.shutdown()
+        values = list(cls._instances_by_address.values())
+        for val in values:
+            val.shutdown()
 
     # Factory for read callback function
     def _get_read_callback(self):
@@ -145,28 +127,29 @@ class ArduinoBoard:
             subprocess.run(["arduino-cli", "upload", "-p", self._arduino_board_spec["address"], "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True)
             telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"])
         self._telemetrix_board = telemetrix_board
+        #TODO: Reset the board (remove all pin modes) after upload
 
         # Verify that the installed firmware version matches the expected version
         if self._telemetrix_board.firmware_version != config.TELEMETRIX_FIRMWARE_VERSION:
             raise Exception(f"There was a problem installing the Telemetrix4Arduino firmware on the Arduino board. (Firmware {self._telemetrix_board.firmware_version} detected, expected {config.TELEMETRIX_FIRMWARE_VERSION})")
 
-    def analog_read(self, pin):
+    def analog_read(self, pin, differential=0):
+        # I would recommend setting a differential of at least 5 (for the servo that is equivalent to limiting resolution to ~2 degrees) if you don't stabilize the output, to avoid frequent reads that might become a problem since the need to acquire a lock on the telemtrix thread
         # Set pin mode to analog input if not already set
         if pin not in self._assigned_pints["analog_input"]:
             self._assigned_pints["analog_input"].append(pin)
             self._read_cache["analog"][pin] = [None, int(time.time())]
-            self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback())
+            self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback(), differential=differential)
             time.sleep(0.1)  # Allow some time for the first reading to be available
 
         return self._read_cache["analog"][pin][0]
 
-
-    def digital_read(self, pin):
+    def digital_read(self, pin, differential=0):
         # Set pin mode to digital input if not already set
         if pin not in self._assigned_pints["digital_input"]:
             self._assigned_pints["digital_input"].append(pin)
             self._read_cache["digital"][pin] = [None, int(time.time())]
-            self._telemetrix_board.set_pin_mode_digital_input(pin, callback=self._get_read_callback())
+            self._telemetrix_board.set_pin_mode_digital_input(pin, callback=self._get_read_callback(), differential=differential)
             time.sleep(0.1)  # Allow some time for the first reading to be available
 
         return self._read_cache["digital"][pin][0]
@@ -207,7 +190,7 @@ class ArduinoBoard:
         if pin not in config.SERVO_H_ALLOWED_PINS:
             print(f"Servo control pin must be one of {config.SERVO_H_ALLOWED_PINS} (not {pin}).")
             return
-        self._telemetrix_board.set_pin_mode_servo(pin, 700, 2300) #TODO: These are copied from Hiro's code; verify by hand, as there is no datahseet
+        self._telemetrix_board.set_pin_mode_servo(pin, 340, 2275)
 
     def detach_servo(self, pin):
         # Detach the servo from the control pin
@@ -215,8 +198,11 @@ class ArduinoBoard:
 
     def write_servo(self, pin, angle):
         # Set the servo to the specified angle (0-180 degrees)
-        if angle < 0 or angle > 180:
-            print(f"Servo angle must be between 0 and 180 degrees (not {angle}).")
+        # Servo behaves non-linearly between inputs of 0-20 degrees. 65 degrees corresponds to actually 90 degrees and 180 degrees corresponds to actually 180 degrees.
+        # The file Servo_behavior.png shows the analog readput as a function of servo angle at settings 340, 2275
+        # Do not write angle below 10
+        if angle < 10 or angle > 180:
+            print(f"Servo angle must be between 10 and 180 degrees (not {angle}).")
             return
         
         self._telemetrix_board.servo_write(pin, angle)
@@ -225,4 +211,5 @@ class ArduinoBoard:
         # Shutdown the telemetrix board connection
         if self._telemetrix_board is not None:
             self._telemetrix_board.shutdown()
+            self.__class__._instances_by_address.pop(self._arduino_board_spec["address"], None)
             self._telemetrix_board = None
