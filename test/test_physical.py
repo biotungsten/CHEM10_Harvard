@@ -113,4 +113,9 @@ class TestArduinoFunctions:
         assert board.analog_write(self.ANALOG_WRITE_PIN, 256) == -1  # Invalid value
         assert board.analog_write(self.ANALOG_WRITE_PIN, -1) == -1  # Invalid value
         assert board.analog_write(self.ANALOG_WRITE_PIN, 3.14) == -1  # Invalid value (not an integer)
-        
+    
+    def test_protection_against_two_instances(self, confirm_physical_setup_present):
+        board = confirm_physical_setup_present
+        with pytest.raises(Exception) as exc_info:
+            second_board = ArduinoBoard()
+        assert "An ArduinoBoard instance with address" in str(exc_info.value)

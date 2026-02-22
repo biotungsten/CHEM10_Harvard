@@ -35,7 +35,7 @@ class ArduinoBoard:
 
         # Ensure only one instance per address exists
         if self._arduino_board_spec["address"] in self.__class__._instances_by_address:
-            raise Exception(f"An ArduinoBoard instance with address {self._arduino_board_spec['address']} already exists.")
+            raise Exception(f"An ArduinoBoard instance with address [{self._arduino_board_spec['address']}] already exists.")
         self.__class__._instances_by_address[self._arduino_board_spec["address"]] = self
 
         # Install Telemetrix4Arduino sketch if not already installed
