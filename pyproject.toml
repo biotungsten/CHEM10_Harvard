@@ -26,3 +26,12 @@ test = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/CHEM10_Harvard"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "-m not physical",
+]
+markers = [
+    "physical: marks tests that need a physical setup",
+    "environment_test: marks tests that verify the environment setup"
+]

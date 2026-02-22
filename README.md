@@ -12,7 +12,7 @@ python -m ipykernel install --user --name=CHEM10_environment
 
 In order to check that all dependencies are present for the package to work you can install `pytest` and run 
 ```bash
-python -m pytest
+python -m pytest -m environment_test
 ```
 
 If you see a green line at the end that says `N passed in N.NNs` you are ready to proceed. 

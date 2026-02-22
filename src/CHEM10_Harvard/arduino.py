@@ -163,10 +163,10 @@ class ArduinoBoard:
         # Ensure value is an integer between 0 and 255
         if not isinstance(value, int):
             print(f"Analog write value must be an integer (not {value}).")
-            return
+            return -1
         if value < 0 or value > 255:
             print(f"Analog write value must be between 0 and 255 (not {value}).")
-            return
+            return -1
         
         self._telemetrix_board.analog_write(pin, value)
 
@@ -179,7 +179,7 @@ class ArduinoBoard:
         # Ensure value is either 0 or 1
         if value not in [0, 1]:
             print(f"Digital write value must be 0 or 1 (not {value}).")
-            return
+            return -1
         
         self._telemetrix_board.digital_write(pin, value)
 
@@ -189,7 +189,7 @@ class ArduinoBoard:
         # Servo.h library only supports pins 9 and 10 on Arduino Uno
         if pin not in config.SERVO_H_ALLOWED_PINS:
             print(f"Servo control pin must be one of {config.SERVO_H_ALLOWED_PINS} (not {pin}).")
-            return
+            return -1
         self._telemetrix_board.set_pin_mode_servo(pin, 340, 2275)
 
     def detach_servo(self, pin):
@@ -203,7 +203,7 @@ class ArduinoBoard:
         # Do not write angle below 10
         if angle < 10 or angle > 180:
             print(f"Servo angle must be between 10 and 180 degrees (not {angle}).")
-            return
+            return -1
         
         self._telemetrix_board.servo_write(pin, angle)
 
