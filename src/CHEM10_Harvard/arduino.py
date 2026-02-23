@@ -141,15 +141,16 @@ class ArduinoBoard:
             self._read_cache["analog"][pin] = [None, int(time.time())]
             self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback(), differential=differential)
             time.sleep(0.1)  # Allow some time for the first reading to be available
+            print(self._read_cache)
 
         return self._read_cache["analog"][pin][0]
 
-    def digital_read(self, pin, differential=0):
+    def digital_read(self, pin):
         # Set pin mode to digital input if not already set
         if pin not in self._assigned_pints["digital_input"]:
             self._assigned_pints["digital_input"].append(pin)
             self._read_cache["digital"][pin] = [None, int(time.time())]
-            self._telemetrix_board.set_pin_mode_digital_input(pin, callback=self._get_read_callback(), differential=differential)
+            self._telemetrix_board.set_pin_mode_digital_input(pin, callback=self._get_read_callback())
             time.sleep(0.1)  # Allow some time for the first reading to be available
 
         return self._read_cache["digital"][pin][0]

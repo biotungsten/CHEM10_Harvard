@@ -2,7 +2,7 @@ import pytest
 import subprocess
 import json
 
-@pytest.mark.environment_test
+@pytest.mark.environment
 def test_python_package_import():
     try:
         import CHEM10_Harvard
@@ -21,7 +21,7 @@ def test_python_package_import():
     except subprocess.CalledProcessError as e:
         pytest.fail(f"Failed to run arduino-cli.\nexit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}")
 
-@pytest.mark.environment_test
+@pytest.mark.environment
 def test_kernel_has_CHEM10_Harvard():
     # Get a json formatted list of all available kernels
     try:

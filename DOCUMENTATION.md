@@ -31,7 +31,7 @@ Assuming you have initialized an instance of `ArduinoBoard` you have to initiali
 
 ```python
 board = ArduinoBoard()
-board.init_servo(SERVO_PIN)
+board.initalize_servo(SERVO_PIN)
 for i in range(65,180,5):
     board.write_servo(SERVO_PIN, i)
     position_voltage = board.read_analog(SERVO_PIN_READ)
@@ -50,7 +50,6 @@ The `CB_DIGITAL` and `CB_ANALOG` values deviate from what is in the documentatio
 We have three sets of tests. The first set of tests checks everything that is purely software side (to the extent that we have testing coverage). If you simply run pytest these tests will be run. There is a second set of sets that checks whether the package can control basic hardware (e.g. LED blinking, ...). In order to run these tests run `pytest -m physical -s`. Additionally you will need to setup the board as follows
 1. Connect an LED with an appropriate resistor to D8 and GND
 2. Connect D8 to D2 with a jumper wire
-3. Connect D9 (PMW) to A1 with a jumper wire
-4. Connect a servo with D10 (PMW) and A0 (XXX and XXX colored wire, put servo into center position)
+4. Connect a servo with D10 (PMW) and A1 (15; orange and white colored wire, put servo into center position)
 
-The third set of tests is marked with `environment_test` and checks that all required packages are installed and a jupyter kernel with CHEM10_Harvard available in it is available.
+The third set of tests is marked with `environment` and checks that all required packages are installed and a jupyter kernel with CHEM10_Harvard available in it is available.

@@ -33,5 +33,5 @@ addopts = [
 ]
 markers = [
     "physical: marks tests that need a physical setup",
-    "environment_test: marks tests that verify the environment setup"
+    "environment: marks tests that verify the environment setup"
 ]
