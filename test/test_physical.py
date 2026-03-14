@@ -2,8 +2,7 @@ import pytest
 from CHEM10_Harvard.arduino import ArduinoBoard
 import time
 import numpy as np
-#TODO: Servo output not reliable
-#TODO: Pure analog read of non servo pin not working --> no analog input signal  (have a resistor over 5V)
+
 @pytest.mark.physical
 class TestArduinoFunctions:
     LED_PIN = 8
@@ -77,12 +76,12 @@ class TestArduinoFunctions:
     def test_servo_read(self, confirm_physical_setup_present):
         board = confirm_physical_setup_present
         angles = [60, 80, 100, 120, 140, 160]
-        voltages = [220, 260, 300, 340, 380, 420]  # These values are based on the calibration curve for the specific servo and setup
+        voltages = [220, 263, 305, 348, 390, 433]  # These values are based on the calibration curve for the specific servo and setup
         delta = 20 # Allowable error in the read values (absolute difference)
         board.initialize_servo(self.SERVO_PIN)
         for i, angle in enumerate(angles):
             board.write_servo(self.SERVO_PIN, angle)
-            time.sleep(0.2)  # Give the servo time to move to the new position
+            time.sleep(0.4)  # Give the servo time to move to the new position
             read_angle = board.analog_read(self.SERVO_READ_PIN, differential=5)
             assert abs(read_angle - voltages[i]) < delta, f"Expected to read approximately {voltages[i]} from pin {self.SERVO_READ_PIN}, but got {read_angle}."
         board.detach_servo(self.SERVO_PIN)

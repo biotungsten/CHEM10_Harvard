@@ -16,7 +16,6 @@ from CHEM10_Harvard import config
 
 class ArduinoBoard:
     _instances_by_address = {}
-    # TODO: reduce wait time for arduino device reset
     def __init__(self, address=None):
         # Register exit hook 
         self.__class__.install_hooks()
@@ -121,13 +120,15 @@ class ArduinoBoard:
     def _install_sketch(self):
         # Try to connect to the board; if it fails, compile and upload the Telemetrix4Arduino sketch
         try:
-            telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"])
+            telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"], arduino_wait=4) # do not reduce arudino_wait, this leads to script breaking
         except RuntimeError as e:
             subprocess.run(["arduino-cli", "compile", "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True)
             subprocess.run(["arduino-cli", "upload", "-p", self._arduino_board_spec["address"], "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True)
-            telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"])
+            telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"], arduino_wait=4)
         self._telemetrix_board = telemetrix_board
-        #TODO: Reset the board (remove all pin modes) after upload
+
+        # In case termination was not handled properly previously, disable all reporting from previous callback functions
+        self._telemetrix_board.disable_all_reporting()
 
         # Verify that the installed firmware version matches the expected version
         if self._telemetrix_board.firmware_version != config.TELEMETRIX_FIRMWARE_VERSION:
@@ -141,7 +142,6 @@ class ArduinoBoard:
             self._read_cache["analog"][pin] = [None, int(time.time())]
             self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback(), differential=differential)
             time.sleep(0.1)  # Allow some time for the first reading to be available
-            print(self._read_cache)
 
         return self._read_cache["analog"][pin][0]
 
