@@ -44,6 +44,9 @@ board.shutdown()
 # Config
 The `CB_DIGITAL` and `CB_ANALOG` values deviate from what is in the documentation for Telemetrix but these seem to be correct for firmware version 5.4.4 which is shipped with this package.
 
+# Calibration
+Calibrate servo, measures range of angles, (30, 180) recommended, also contains functionality to store and read servo lut and get position readings. Run once per servo motor, then can use the stored lut and the `readAngle` function to get calibrated analog reading -> angle values.
+
 # Spectrometer
 
 # Utils

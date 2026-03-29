@@ -7,6 +7,8 @@ name = "CHEM10_Harvard"
 version = "0.0.1"
 dependencies = [
   "numpy",
+  "pandas",
+  "matplotlib",
   "telemetrix",
   "jupyter",
   "ipykernel"
