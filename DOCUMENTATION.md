@@ -54,4 +54,4 @@ We have three sets of tests. The first set of tests checks everything that is pu
 2. Connect D8 to D2 with a jumper wire
 4. Connect a servo with D10 (PMW) and A1 (15; orange and white colored wire, put servo into center position)
 
-The third set of tests is marked with `environment` and checks that all required packages are installed and a jupyter kernel with CHEM10_Harvard available in it is available.
+The third set of tests is marked with `environment` and checks that all required packages are installed and a jupyter kernel with CHEM10_Harvard available in it is available. (if run with `-s` flag name of kernel and executable will be outputted.)

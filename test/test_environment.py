@@ -53,6 +53,7 @@ def test_kernel_has_CHEM10_Harvard():
         py_exe = argv[0]  # the python executable the kernel would use
         try:
             imp = subprocess.run([py_exe, "-c", "import CHEM10_Harvard; print(getattr(CHEM10_Harvard, '__file__', '<namespace>'))"], check=True, text=True, capture_output=True,)
+            print(f"Kernel '{name}' with python executable '{py_exe}' can import CHEM10_Harvard from: {imp.stdout.strip()}")
             return
         except FileNotFoundError as e:
             failures.append(f"{name}: python exe not found ({py_exe}): {e}")
