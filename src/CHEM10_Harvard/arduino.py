@@ -142,7 +142,11 @@ class ArduinoBoard:
             self._read_cache["analog"][pin] = [None, int(time.time())]
             self._telemetrix_board.set_pin_mode_analog_input(pin, callback=self._get_read_callback(), differential=differential)
             time.sleep(0.1)  # Allow some time for the first reading to be available
-
+            # Safeguard if 100 ms insufficient 
+            if self._read_cache["analog"][pin][0] is None:
+                time.sleep(0.2)
+            if self._read_cache["analog"][pin][0] is None:
+                print(f"Warning: No reading available yet for analog pin {pin}. Returning None.")
         return self._read_cache["analog"][pin][0]
 
     def digital_read(self, pin):

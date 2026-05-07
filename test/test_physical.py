@@ -79,11 +79,28 @@ class TestArduinoFunctions:
         voltages = [220, 263, 305, 348, 390, 433]  # These values are based on the calibration curve for the specific servo and setup
         delta = 20 # Allowable error in the read values (absolute difference)
         board.initialize_servo(self.SERVO_PIN)
+        board.write_servo(self.SERVO_PIN, 65)  # Move to a known position to stabilize the servo
         for i, angle in enumerate(angles):
             board.write_servo(self.SERVO_PIN, angle)
-            time.sleep(0.4)  # Give the servo time to move to the new position
+            
+            # Choose delay, first takes a bit longer
+            delay = 1.0 if i == 0 else 0.25
+            time.sleep(delay)  # Give the servo time to move to the new position
+
+            # Read the angle and check it
             read_angle = board.analog_read(self.SERVO_READ_PIN, differential=5)
-            assert abs(read_angle - voltages[i]) < delta, f"Expected to read approximately {voltages[i]} from pin {self.SERVO_READ_PIN}, but got {read_angle}."
+            correct = abs(read_angle - voltages[i]) < delta 
+
+            # We need debugging output if we are not correct
+            if not correct:
+                debug_values = []
+                for i in range(10):
+                    time.sleep(0.1)
+                    debug_values.append(board.analog_read(self.SERVO_READ_PIN, differential=5))
+                print(f"Debug values for pin {self.SERVO_READ_PIN} (from {delay*1000} ms --> {delay*1000 + 1000} ms): {debug_values}")
+
+            # Assert initial check
+            assert correct, f"Expected to read approximately {voltages[i]} from pin {self.SERVO_READ_PIN}, but got {read_angle}."
         board.detach_servo(self.SERVO_PIN)
 
     def test_servo_fails_on_false_angles(self, confirm_physical_setup_present):
