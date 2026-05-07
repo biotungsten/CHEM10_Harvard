@@ -1,5 +1,7 @@
 # CHEM10_Harvard
 
+This is a package to interface with the spectrometer built in CHEM 10 at Harvard College. You can learn more about CHEM 10 [here]()
+
 # Installation
  First you have to have installed Python 3.13 or higher ([here](https://docs.python.org/3.13/using/windows.html) are instructions on how to install Python on Windows). Python is pre-installed on macOS and linux. We recommend you setup a virtual envrionment ([venv](https://docs.python.org/3/library/venv.html)) where you use the library. Before activating the virtual environment take care to deactivate all other environments (e.g. other venvs or conda environments). You are also free to use packaging managers (e.g. [uv](https://docs.astral.sh/uv/guides/install-python/), [conda](https://docs.conda.io/en/latest/), ...). This might be advantageous if you plan to work in STEM fields where `conda` is commonly used.
 
