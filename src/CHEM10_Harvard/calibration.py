@@ -7,8 +7,13 @@ from typing import Union
 
 """
     Servo calibration.
+
+    This class assumes that no other classes are using the same board. It will shutdown the board when no Calibration instances are using it.
 """
 class Calibration:
+    # Track servo pin user counts per board identity. Keyed by id(board). Then keyed by servo pin number. Value is user count.
+    _initialized_servo_pins = {}
+
     def __init__(
         self,
         pin_servowrite,
@@ -22,9 +27,20 @@ class Calibration:
         self.pin_servoread = pin_servoread
         self.path_lut = Path(path_lut) # lookup table saved json path
         self.lut = {} # lookup table dict
+        self._closed = False
+        self._board_key = id(self.board)
 
-        self.board.initialize_servo(pin_servowrite)
-        time.sleep(0.1)
+        self._register_servo()
+
+
+    def _register_servo(self):
+        pins = self.__class__._initialized_servo_pins.setdefault(self._board_key, {})
+
+        pin_users = pins.get(self.pin_servowrite, 0)
+        if pin_users == 0:
+            self.board.initialize_servo(self.pin_servowrite)
+            time.sleep(0.1)
+        pins[self.pin_servowrite] = pin_users + 1
 
 
     """
@@ -157,8 +173,27 @@ class Calibration:
 
 
     def close(self):
-        self.board.detach_servo(self.pin_servowrite)
-        self.board.shutdown()
+        if self._closed:
+            return
+        self._closed = True
+
+        # Decrement user count and if this makes pin userless then detach servo. If this makes board have no servo pins then shutdown board.
+        pins = self.__class__._initialized_servo_pins.get(self._board_key)
+        if pins is None:
+            self.board.shutdown()
+            return
+
+        pin_users = pins.get(self.pin_servowrite, 0)
+        if pin_users <= 1:
+            if self.pin_servowrite in pins:
+                self.board.detach_servo(self.pin_servowrite)
+                pins.pop(self.pin_servowrite, None)
+        else:
+            pins[self.pin_servowrite] = pin_users - 1
+
+        if not pins:
+            self.__class__._initialized_servo_pins.pop(self._board_key, None)
+            self.board.shutdown()
 
 
     def __enter__(self):
@@ -167,5 +202,3 @@ class Calibration:
 
     def __exit__(self, exc_type, exc, tb):
         self.close()
-
-
