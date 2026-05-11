@@ -33,7 +33,7 @@ Assuming you have initialized an instance of `ArduinoBoard` you have to initiali
 
 ```python
 board = ArduinoBoard()
-board.initalize_servo(SERVO_PIN)
+board.initialize_servo(SERVO_PIN)
 for i in range(65,180,5):
     board.write_servo(SERVO_PIN, i)
     position_voltage = board.read_analog(SERVO_PIN_READ)

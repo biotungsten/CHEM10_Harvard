@@ -13,11 +13,10 @@ class Calibration:
         self,
         pin_servowrite,
         pin_servoread,
-        board_class,
-        board_address=None,
+        board,
         path_lut="servo_lut.json",
     ):
-        self.board = board_class(address=board_address)
+        self.board = board
         self.pin_servowrite = pin_servowrite
         self.pin_servoread = pin_servoread
         self.path_lut = Path(path_lut) # lookup table saved json path
@@ -87,7 +86,7 @@ class Calibration:
     OUT:
         tbl : lookup table, also saved to file.
     """
-    def calibrate(self, angles=(30, 180), step=5):
+    def calibrate(self, angles=(120, 180), step=5):
         tbl = {}
 
         for angle in range(angles[0], angles[1] + 1, step):

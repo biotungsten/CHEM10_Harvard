@@ -1,31 +1,41 @@
+
+import time
+
 from CHEM10_Harvard.arduino import ArduinoBoard
 from CHEM10_Harvard.calibration import Calibration
 
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 
 class Spectrometer:
-    def __init__(self, pin_write, pin_read, address=None):
-        self.device = Calibration(
-            pin_write,
-            pin_read,
-            ArduinoBoard,
-            board_address=address,
-        )
+    def __init__(self, cal, pin_photoread):
+        self.cal = cal
+        self.pin_photoread = pin_photoread
         self.curves = None
 
-    def read_at_angle(self, angle):
-        self.device.move(angle)
-        return float(self.device.readPosition())
+    def readPhoto(self, angle, samples=5, delay=0.1):
+        DIFF = 5
+        vals = []
+
+        self.cal.move(angle)
+        for _ in range(samples):
+            v = self.cal.board.analog_read(self.pin_photoread, differential=DIFF)
+            if v is not None:
+                vals.append(v)
+            time.sleep(delay)
+        if not vals: raise RuntimeError("No valid photo readings received.")
+
+        return sum(vals) / len(vals)
 
     def sweep(self, angles):
-        angles = np.asarray(angles, dtype=float)
-        return np.array([self.read_at_angle(a) for a in angles], dtype=float)
+        angles = np.asarray(angles, dtype=int)
+        return np.array([self.readPhoto(a) for a in angles], dtype=float)
 
-    def measure(self, angles=np.arange(30, 181, 5), runs=3):
-        angles = np.asarray(angles, dtype=float)
+    def measure(self, angles=np.arange(120, 180, 5), runs=3):
+        angles = np.asarray(angles, dtype=int)
         self.curves = np.array([self.sweep(angles) for _ in range(runs)], dtype=float)
         intensity = self.curves.mean(axis=0)
         return angles, intensity
@@ -55,7 +65,7 @@ class Spectrometer:
             )
 
     def close(self):
-        self.device.close()
+        self.cal.close()
 
     def __enter__(self):
         return self
