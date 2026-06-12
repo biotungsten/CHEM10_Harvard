@@ -10,4 +10,3 @@ with Spectrometer(9, 0) as spec:
     wavelengths, intensity = spec.measure(runs=5, blank_path="blank.json")
     spec.plot_measurement(wavelengths, intensity)
     spec.save_spectrum(wavelengths, intensity, "sample.json")
-

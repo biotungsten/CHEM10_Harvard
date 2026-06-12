@@ -34,7 +34,7 @@ class Spectrometer:
         angles = np.asarray(angles, dtype=int)
         return np.array([self.readPhoto(a) for a in angles], dtype=float)
 
-    def measure(self, angles=np.arange(120, 180, 5), runs=3):
+    def measure(self, angles=np.arange(90, 160, 1), runs=3):
         angles = np.asarray(angles, dtype=int)
         self.curves = np.array([self.sweep(angles) for _ in range(runs)], dtype=float)
         intensity = self.curves.mean(axis=0)
