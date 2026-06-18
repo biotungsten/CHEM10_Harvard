@@ -6,6 +6,8 @@
 """
 
 
+
+
 # from CHEM10_Harvard.arduino import ArduinoBoard
 # from CHEM10_Harvard.servo import Servo
 
@@ -13,12 +15,16 @@ import time
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import time
+
+
 
 
 """
     Spectrometer functionality.
     Requires calibrated servo object, phototransistor pin #.
+    PARAMS:
+        servo : Servo = calibrated servo object
+        pin_photoread : int = phototransistor reading pin #, usually 5
 """
 class Spectrometer:
     def __init__(self, servo, pin_photoread):
@@ -98,7 +104,6 @@ class Spectrometer:
         plt.tight_layout()
         plt.savefig(path)
         plt.close()
-
 
 
     """

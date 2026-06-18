@@ -1,25 +1,30 @@
 
+"""
+    servo.py
+    06/17/2026
+    AW, DS, MC
+"""
+
+
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 """
     Spectrometer postprocessing.
-
-    Maps angle to wavelength given LED reference and blank spectra.
+    Functionality for basic postprocessing of spectrometer data.
 """
 class Post:
-
     def __init__(
         self,
         blank,
-        data,
-        ref=,
+        ref,
+        data=None,
     ):
-        self.data = data
+        self.blank = blank # json of blank curve
+        self.ref = ref # json of reference LED spectrum
+        self.data = data # json of experiment, optional
 
 
-    def __enter__(self):
-        return self
-
-
-    def __exit__(self, exc_type, exc, tb):
-        self.close()
+    

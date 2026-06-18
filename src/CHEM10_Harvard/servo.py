@@ -6,16 +6,24 @@
 """
 
 
+
+
 from pathlib import Path
 import json
 import time
 import matplotlib.pyplot as plt
-from typing import Union
+
+
 
 
 """
     Servo calibration.
     This class assumes that no other classes are using the same board. It will shutdown the board when no Calibration instances are using it.
+    PARAMS:
+        pin_servowrite : int = servo control pin, usually 9
+        pin_servoread : int = servo feedback pin, usually 0
+        board : ArduinoBoard = initialized ArduinoBoard object
+        path_lut : str = path to save servo output vs. arm angle LUT json file
 """
 class Servo:
     # Track servo pin user counts per board identity. Keyed by id(board). Then keyed by servo pin number. Value is user count.
@@ -28,7 +36,7 @@ class Servo:
         board,
         path_lut="servo_lut.json",
     ):
-        self.board = board
+        self.board = board # initialized ArduinoBoard object
         self.pin_servowrite = pin_servowrite # usually pin 9
         self.pin_servoread = pin_servoread # usually pin 0
         self.path_lut = Path(path_lut) # lookup table saved json path
