@@ -1,3 +1,11 @@
+
+"""
+    servo.py
+    06/17/2026
+    AW, DS, MC
+"""
+
+
 from pathlib import Path
 import json
 import time
@@ -7,7 +15,6 @@ from typing import Union
 
 """
     Servo calibration.
-
     This class assumes that no other classes are using the same board. It will shutdown the board when no Calibration instances are using it.
 """
 class Servo:
@@ -22,8 +29,8 @@ class Servo:
         path_lut="servo_lut.json",
     ):
         self.board = board
-        self.pin_servowrite = pin_servowrite
-        self.pin_servoread = pin_servoread
+        self.pin_servowrite = pin_servowrite # usually pin 9
+        self.pin_servoread = pin_servoread # usually pin 0
         self.path_lut = Path(path_lut) # lookup table saved json path
         self.lut = {} # lookup table dict
         self._closed = False
@@ -201,3 +208,6 @@ class Servo:
 
     def __exit__(self, exc_type, exc, tb):
         self.close()
+
+
+
