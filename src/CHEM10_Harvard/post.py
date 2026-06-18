@@ -6,9 +6,13 @@
 """
 
 
+
+
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+
+
 
 
 """
@@ -25,6 +29,8 @@ class Post:
         self.blank = blank # json of blank curve
         self.ref = ref # json of reference LED spectrum
         self.data = data # json of experiment, optional
+
+        
 
 
     
