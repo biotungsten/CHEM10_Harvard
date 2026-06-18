@@ -10,7 +10,7 @@ from typing import Union
 
     This class assumes that no other classes are using the same board. It will shutdown the board when no Calibration instances are using it.
 """
-class Calibration:
+class Servo:
     # Track servo pin user counts per board identity. Keyed by id(board). Then keyed by servo pin number. Value is user count.
     _initialized_servo_pins = {}
 
