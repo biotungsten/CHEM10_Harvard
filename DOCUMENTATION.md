@@ -20,7 +20,7 @@ Subsequently you can call the avrious methods available. You will receive an err
 In case you cannot find the instance you already have for a given address, the objects are stored indexed by the address port (which you will get from the error message) in `ArduinoBoard._instances_by_address`.
 
 
-# Servo
+# Servo Motor
 The specific servo motor the functions were optimized for is a Batan Analog S1123, *for which no datasheet exists*. The range of 0 to 20 degrees was very non-linear in tests. Thus we recommend to only use the servo in the angle range of 30 to 180 degrees. In particular one should **never write an angle below 10 degrees**, as this might break the servo. An angle of 65 degrees corresponds to the actual center position (90 degrees) and 180 degrees corresponds to the maximum position (180 degrees). While a mapping based on these values (analog voltage readouts documented in `Servo_behavior.png`, for parameters 340, 2275) is provided, we recommend having the user perform a calibration for reproducibility.
 
 The servo readout is only accurate approximately 300 ms after writing a position. See an example (150°, n=3) in `Servo_readout.png`.
@@ -46,7 +46,7 @@ The `CB_DIGITAL` and `CB_ANALOG` values deviate from what is in the documentatio
 
 # Utils
 
-# Testing
+# Environment Testing
 We have three sets of tests. The first set of tests checks everything that is purely software side (to the extent that we have testing coverage). If you simply run pytest these tests will be run. There is a second set of sets that checks whether the package can control basic hardware (e.g. LED blinking, ...). In order to run these tests run `pytest -m physical -s`. Additionally you will need to setup the board as follows
 1. Connect an LED with an appropriate resistor to D8 and GND
 2. Connect D8 to D2 with a jumper wire
@@ -54,7 +54,79 @@ We have three sets of tests. The first set of tests checks everything that is pu
 
 The third set of tests is marked with `environment` and checks that all required packages are installed and a jupyter kernel with CHEM10_Harvard available in it is available.
 
-# Calibration
-Calibrate servo, measures range of angles, (30, 180) recommended, also contains functionality to store and read servo lut and get position readings. Run once per servo motor, then can use the stored lut and the `readAngle` function to get calibrated analog reading -> angle values.
-
 # Spectrometer
+Before you can use the spectrometer, you will have to connect the board, creating an ArduinoBoard instance.The spectrometer has three major submodules: `Servo`, `Spectrometer`, and `Post`. The `Servo` module provides basic funcitonality to connect to and calibrate the servo motor. It will produce a LUT between the input arm angle and the output voltage reading. The `Specctrometer` module allows for measurement of intensity spectra by calling the servo module to move the arm and taking phototransisotr readings at the relevant arduino pin. Finally, the `Post` module provides several useful postprocessing functions, including cropping and normalizing intensity readings of spectra, and converting from arm angle to wavelength using the blank data. This conversion uses linear interpolation of matched points from dynamic time warping (DTW) between the blank and reference spectra. It is up to you to become familiar with the relevant functions and their parameters in each module, and to track inputs and outputs with your filesystem responsibly.
+
+## Example: Taking a spectrum
+Here we want to connect the board, servo, and make a spectrometer object, using which we can take measurements. Don't forget to replace the relevant filepathes in each function!
+
+```python
+from CHEM10_Harvard.arduino import ArduinoBoard
+from CHEM10_Harvard.servo import Servo
+from CHEM10_Harvard.spectrometer import Spectrometer
+
+board = ArduinoBoard() # connect board
+# Connect servo
+servo = Servo(pin_servowrite=9, pin_servoread=0, board = board, path_lut="<INSERT>.json")
+servo.calibrate()
+
+# Initialize spectrometer
+spec = Spectrometer(servo, 5)
+
+# Take a spectrum
+angles, intensities = spec.measure() # adjust parameters as needed
+spec.plot(angles, intensities, path="<INSERT>.png", show_runs = True)
+spec.save(angles, intensities, path="<INSERT>.json")
+```
+
+You can repeat the steps to take a spectrum as many times as necessary, using your samples of interest. Always take a blank spectrum first, with nothing in the cuvette slot, before conducting your experiment. The blank will be important for postprocessing, specifically calibration between servo arm angle and diffraction grating wavelength.
+
+## Example: Postprocessing
+Here we will view our experiment outputs by loading the data into `pandas` dataframes and plotting. We will also use the `Post` module to crop, normalize, and convert the independent variable from arm angle to wavelength.
+
+```python
+from CHEM10_Harvard.post import Post
+import pandas as pd
+import matplotlib.pyplot as plt
+
+post = Post() # instantiate the Post module
+
+# Load data
+ref = pd.read_csv('<INSERT>/ref/led_spectrum.csv') # given reference led spectrum .csv
+blank = pd.read_json('<INSERT>.json') # your blank spectrum .json
+
+# Take a look at the blank and reference spectra, the curves should have the same shape
+blank.plot("angle", "intensity")
+plt.show()
+ref.plot("angle", "intensity")
+plt.show()
+
+blank = post.cropX(blank, "angle", None, 125) # crop out 0-order beam, change upper limit as needed
+blank = post.normY(blank, "intensity") # normalize to relative intensities (range 0-1)
+
+# Calibration
+post.calibrate(blank, ref, "angle", "relative_intensity") # run DTW
+
+# Convert from arm angle to wavelength
+blank = post.addWavelengths(blank) # add wavelength column to the blank df
+blank.plot("wavelength", "intensity") # view results
+plt.show()
+
+post.save("<INSERT>.json") # save calibration results dict for future use
+```
+
+Note once you have calibrated sucessfully, and the blank spectrum wavelengths look good, you can load your experimental results to dfs and repeat the `addWavelength` function on them to convert the x-axis of any spectrum from arm angle to wavelength. If you wish to use the same calibration in the future, you can save the calibration results to a .json, load the dict at a later time, and add the reloaded calibration dict as a parameter to `addWavelength` instead of recalibrating from the blank and reference data again.
+
+## Tips
+Full documentation of each module can be generated from the docstrings, e.g.
+
+```python
+from CHEM10_Harvard.spectrometer import Spectrometer
+help(Spectrometer)
+# Press `q` to quit the help menu.
+```
+
+Always provide full filepathes for where to store output files, and keep your directories neatly organized! Example blank readings and reference data can be found in the `eg` and `ref` folders. Common mistakes, such as a sweep range that cuts off the desired spectrum, and a spectrum taken at too high a resistance resulting in low SNR, are also included. Note that, from a blank spectrum, we are interested in the wavelength range that resembles the LED reference spectrum (see datasheet and example in `ref` folder), not the large peak nearer `angle=150`, which is the central 0-order beam that we will want to crop out using `Post.cropX`.  
+
+
+

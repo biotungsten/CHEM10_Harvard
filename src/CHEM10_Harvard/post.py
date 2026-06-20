@@ -179,6 +179,7 @@ class Post:
         if cal is None:
             raise ValueError("No calibration provided, run calibrate() first.")
 
+        # Linear interpolation of the DTW results
         return np.interp(angles, cal["angles"], cal["wavelengths"])
 
 
