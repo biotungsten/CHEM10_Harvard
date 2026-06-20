@@ -44,11 +44,6 @@ board.shutdown()
 # Config
 The `CB_DIGITAL` and `CB_ANALOG` values deviate from what is in the documentation for Telemetrix but these seem to be correct for firmware version 5.4.4 which is shipped with this package.
 
-# Calibration
-Calibrate servo, measures range of angles, (30, 180) recommended, also contains functionality to store and read servo lut and get position readings. Run once per servo motor, then can use the stored lut and the `readAngle` function to get calibrated analog reading -> angle values.
-
-# Spectrometer
-
 # Utils
 
 # Testing
@@ -58,3 +53,8 @@ We have three sets of tests. The first set of tests checks everything that is pu
 4. Connect a servo with D10 (PMW) and A1 (15; orange and white colored wire, put servo into center position)
 
 The third set of tests is marked with `environment` and checks that all required packages are installed and a jupyter kernel with CHEM10_Harvard available in it is available.
+
+# Calibration
+Calibrate servo, measures range of angles, (30, 180) recommended, also contains functionality to store and read servo lut and get position readings. Run once per servo motor, then can use the stored lut and the `readAngle` function to get calibrated analog reading -> angle values.
+
+# Spectrometer
