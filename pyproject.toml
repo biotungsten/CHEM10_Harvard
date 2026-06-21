@@ -11,7 +11,8 @@ dependencies = [
   "matplotlib",
   "telemetrix",
   "jupyter",
-  "ipykernel"
+  "ipykernel",
+  "dtw-python"
 ]
 requires-python = ">=3.12"
 authors = [
