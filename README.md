@@ -20,7 +20,7 @@ If you see a green line at the end that says `N passed in N.NNs` you are ready t
 # [Optional] conda installation
 Should you use `conda` or one of its derivatives like `mamba` (reccomended), you can use the following commands. Note it is very important to install `pip` packages AFTER installing `conda` packages, otherwise you will reach dependenecy hell (https://en.wikipedia.org/wiki/Dependency_hell).
 ```bash
-mamba create -n chem10 -c conda-forge python=3.12 numpy pandas matplotlib jupyter ipykernel pytest pytest-cov
+mamba create -n chem10 -c conda-forge python=3.12 numpy pandas matplotlib scipy jupyter ipykernel pytest pytest-cov
 mamba activate chem10
 pip install telemetrix
 ```

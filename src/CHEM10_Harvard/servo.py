@@ -1,29 +1,47 @@
+"""
+servo.py
+06/17/2026
+AW, DS, MC
+"""
+
+
+
+
+from CHEM10_Harvard.arduino import ArduinoBoard
+
 from pathlib import Path
 import json
 import time
 import matplotlib.pyplot as plt
-from typing import Union
 
 
-"""
-    Servo calibration.
 
-    This class assumes that no other classes are using the same board. It will shutdown the board when no Calibration instances are using it.
-"""
-class Calibration:
-    # Track servo pin user counts per board identity. Keyed by id(board). Then keyed by servo pin number. Value is user count.
+
+class Servo:
+    """Servo calibration
+    This class assumes that no other classes are using the same board. 
+    It will shutdown the board when no Calibration instances are using it.
+    PARAMS:
+        pin_servowrite : int = servo control pin, usually 9
+        pin_servoread : int = servo feedback pin, usually 0
+        board : ArduinoBoard = initialized ArduinoBoard object
+        path_lut : str = path to save or reload servo output vs. arm angle 
+        LUT json file
+    """
+    # Track servo pin user counts per board identity. Keyed by id(board). 
+    # Then keyed by servo pin number. Value is user count.
     _initialized_servo_pins = {}
 
     def __init__(
         self,
-        pin_servowrite,
-        pin_servoread,
-        board,
-        path_lut="servo_lut.json",
+        pin_servowrite : int,
+        pin_servoread : int,
+        board : ArduinoBoard,
+        path_lut : str = "servo_lut.json",
     ):
-        self.board = board
-        self.pin_servowrite = pin_servowrite
-        self.pin_servoread = pin_servoread
+        self.board = board # initialized ArduinoBoard object
+        self.pin_servowrite = pin_servowrite # usually pin 9
+        self.pin_servoread = pin_servoread # usually pin 0
         self.path_lut = Path(path_lut) # lookup table saved json path
         self.lut = {} # lookup table dict
         self._closed = False
@@ -42,28 +60,26 @@ class Calibration:
         pins[self.pin_servowrite] = pin_users + 1
 
 
-    """
-        Move servo to angle `theta`
+    def move(self, theta, delay=0.5):
+        """Move servo to angle `theta`
         IN:
             theta = target angle.
             delay = wait time for servo to settle.
         OUT: None
-    """
-    def move(self, theta, delay=0.5):
+        """
         self.board.write_servo(self.pin_servowrite, theta)
         time.sleep(delay)
 
 
-    """
-        Get reading from servo at current position.
+    def readPosition(self, samples=5, delay=0.1):
+        """Get reading from servo at current position
         IN:
             samples = number of sample readings to take.
             delay = wait time between samples.
 
         OUT:
             avg reading from vals.
-    """
-    def readPosition(self, samples=5, delay=0.1):
+        """
         DIFF = 5
         vals = []
         for _ in range(samples):
@@ -76,33 +92,28 @@ class Calibration:
         return sum(vals) / len(vals)
 
 
-    """
-        Save lookup table.
-    """
     def save(self):
+        """Save lookup table"""
         with open(self.path_lut, "w") as f:
             json.dump(self.lut, f, indent=2)
 
 
-    """
-        Load lookup table.
-    """
     def load(self):
+        """Load lookup table"""
         with open(self.path_lut, "r") as f:
             self.lut = json.load(f)
         self.lut = {int(k): v for k, v in self.lut.items()}
         return self.lut
 
 
-    """
-    Calibrate servo over specified angle range, make lookup table.
-    IN:
-        angles : float tuple = angle range for calibration in deg.
-        step : float = step size increment in deg.
-    OUT:
-        tbl : lookup table, also saved to file.
-    """
     def calibrate(self, angles=(120, 180), step=5):
+        """Calibrate servo over specified angle range, make lookup table
+        IN:
+            angles : float tuple = angle range for calibration in deg.
+            step : float = step size increment in deg.
+        OUT:
+            tbl : lookup table, also saved to file.
+        """
         tbl = {}
 
         for angle in range(angles[0], angles[1] + 1, step):
@@ -116,15 +127,14 @@ class Calibration:
         return tbl
 
 
-    """
-    Get the predicted angle given the reading and LUT.
-    IN:
-        reading : float = analog read value
-    OUT:
-        angle : float = linearly interpolated predicted angle
-        error : float = half the difference of closest lut measurements
-    """
     def getAngle(self, reading):
+        """Get the predicted angle given the reading and LUT
+        IN:
+            reading : float = analog read value
+        OUT:
+            angle : float = linearly interpolated predicted angle
+            error : float = half the difference of closest lut measurements
+        """
         self.load()
         if not self.lut:
             raise RuntimeError("No lookup table loaded.")
@@ -152,10 +162,8 @@ class Calibration:
         raise RuntimeError("Interpolation failed")
 
 
-    """
-    Plots the LUT for insanity check purposes.
-    """
     def plot(self):
+        """Plots the LUT for insanity check purposes"""
         if not self.lut: self.load()
         if not self.lut: raise RuntimeError("No lookup table found.")
 
@@ -176,7 +184,8 @@ class Calibration:
             return
         self._closed = True
 
-        # Decrement user count and if this makes pin userless then detach servo. If this makes board have no servo pins then shutdown board.
+        # Decrement user count and if this makes pin userless then detach servo. 
+        # If this makes board have no servo pins then shutdown board.
         pins = self.__class__._initialized_servo_pins.get(self._board_key)
         if pins is None:
             self.board.shutdown()
@@ -201,3 +210,6 @@ class Calibration:
 
     def __exit__(self, exc_type, exc, tb):
         self.close()
+
+
+
