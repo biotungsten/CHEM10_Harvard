@@ -17,14 +17,14 @@ python -m pytest -m environment
 
 If you see a green line at the end that says `N passed in N.NNs` you are ready to proceed. 
 
-# [Optional] conda installation
-Should you use `conda` or one of its derivatives like `mamba` (reccomended), you can install from the .yml file included in the package files.
+# [Optional] mamba installation
+Should you use `conda` or one of its derivatives like `mamba` (reccomended), you can install from the .yml file included in the reference files. First, change the prefix line to the location of mamba in your system, e.g. `/Users/austinwang/mamba/envs/chem10`. Then, run the following to build the chem10 environment to that location.
 
 ```bash
 mamba env create -f <INSERT>/CHEM10_Harvard/ref/chem10.yml
 ```
 
-Alternatively, use the following commands. Note it is very important to install `pip` packages AFTER installing `conda` packages, otherwise you will reach dependenecy hell (https://en.wikipedia.org/wiki/Dependency_hell).
+Alternatively, you can manually create the environment using the following commands. Note it is very important to install `pip` packages AFTER installing `conda` packages, otherwise you will reach dependenecy hell (https://en.wikipedia.org/wiki/Dependency_hell).
 
 ```bash
 mamba create -n chem10 -c conda-forge python=3.12 numpy pandas matplotlib scipy dtw-python jupyter ipykernel pytest pytest-cov
