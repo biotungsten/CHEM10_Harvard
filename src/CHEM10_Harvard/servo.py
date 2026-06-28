@@ -106,7 +106,7 @@ class Servo:
         return self.lut
 
 
-    def calibrate(self, angles=(120, 180), step=5):
+    def calibrate(self, angles=(85, 180), step=5):
         """Calibrate servo over specified angle range, make lookup table
         IN:
             angles : float tuple = angle range for calibration in deg.

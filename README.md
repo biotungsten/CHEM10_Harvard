@@ -18,11 +18,21 @@ python -m pytest -m environment
 If you see a green line at the end that says `N passed in N.NNs` you are ready to proceed. 
 
 # [Optional] conda installation
-Should you use `conda` or one of its derivatives like `mamba` (reccomended), you can use the following commands. Note it is very important to install `pip` packages AFTER installing `conda` packages, otherwise you will reach dependenecy hell (https://en.wikipedia.org/wiki/Dependency_hell).
+Should you use `conda` or one of its derivatives like `mamba` (reccomended), you can install from the .yml file included in the package files.
+
 ```bash
-mamba create -n chem10 -c conda-forge python=3.12 numpy pandas matplotlib scipy jupyter ipykernel pytest pytest-cov
+mamba env create -f <INSERT>/CHEM10_Harvard/ref/chem10.yml
+```
+
+Alternatively, use the following commands. Note it is very important to install `pip` packages AFTER installing `conda` packages, otherwise you will reach dependenecy hell (https://en.wikipedia.org/wiki/Dependency_hell).
+
+```bash
+mamba create -n chem10 -c conda-forge python=3.12 numpy pandas matplotlib scipy dtw-python jupyter ipykernel pytest pytest-cov
 mamba activate chem10
 pip install telemetrix
 ```
 
 Then, if you are using VSCode, Ctrl+Shift+P > "Select Interpreter" > choose your mamba env. If your env doesn't show up, go to Terminal and type `mamba env list`, then copy the path and add it as an env in VSCode.
+
+
+

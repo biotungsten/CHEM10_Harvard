@@ -57,6 +57,17 @@ The third set of tests is marked with `environment` and checks that all required
 # Spectrometer
 Before you can use the spectrometer, you will have to connect the board, creating an ArduinoBoard instance.The spectrometer has three major submodules: `Servo`, `Spectrometer`, and `Post`. The `Servo` module provides basic funcitonality to connect to and calibrate the servo motor. It will produce a LUT between the input arm angle and the output voltage reading. The `Specctrometer` module allows for measurement of intensity spectra by calling the servo module to move the arm and taking phototransisotr readings at the relevant arduino pin. Finally, the `Post` module provides several useful postprocessing functions, including cropping and normalizing intensity readings of spectra, and converting from arm angle to wavelength using the blank data. This conversion uses linear interpolation of matched points from dynamic time warping (DTW) between the blank and reference spectra. It is up to you to become familiar with the relevant functions and their parameters in each module, and to track inputs and outputs with your filesystem responsibly.
 
+## Tips
+Full documentation of each module can be generated from the docstrings, e.g.
+
+```python
+from CHEM10_Harvard.spectrometer import Spectrometer
+help(Spectrometer)
+# Press `q` to quit the help menu.
+```
+
+Always provide full filepathes for where to store output files, and keep your directories neatly organized! Example blank readings and reference data can be found in the `eg` and `ref` folders. Common mistakes, such as a sweep range that cuts off the desired spectrum, and a spectrum taken at too high a resistance resulting in low SNR, are also included. Note that, from a blank spectrum, we are interested in the wavelength range that resembles the LED reference spectrum (see datasheet and example in `ref` folder), not the large peak nearer `angle=150`, which is the central 0-order beam that we will want to crop out using `Post.cropX`.  
+
 ## Example: Taking a spectrum
 Here we want to connect the board, servo, and make a spectrometer object, using which we can take measurements. Don't forget to replace the relevant filepathes in each function!
 
@@ -70,11 +81,13 @@ board = ArduinoBoard() # connect board
 servo = Servo(pin_servowrite=9, pin_servoread=0, board = board, path_lut="<INSERT>.json")
 servo.calibrate()
 
+# Don't forget to turn on the 9V battery!!!
+
 # Initialize spectrometer
 spec = Spectrometer(servo, 5)
 
 # Take a spectrum
-angles, intensities = spec.measure() # adjust parameters as needed
+angles, intensities = spec.measure() # adjust parameters as needed, set `runs=1` to make faster
 spec.plot(angles, intensities, path="<INSERT>.png", show_runs = True)
 spec.save(angles, intensities, path="<INSERT>.json")
 ```
@@ -98,8 +111,13 @@ blank = pd.read_json('<INSERT>.json') # your blank spectrum .json
 # Take a look at the blank and reference spectra, the curves should have the same shape
 blank.plot("angle", "intensity")
 plt.show()
-ref.plot("angle", "intensity")
+ref.plot("wavelength", "intensity")
 plt.show()
+
+# Note the independent variable in our data is currently ``angle,'' but we would like
+# it to be wavelength. We will use the reference spectrum to calibrate a mapping from 
+# spectrometer arm angle to wavelength from the diffraction grating. You are encouraged 
+# to read through the `Post` module code to learn more!
 
 blank = post.cropX(blank, "angle", None, 125) # crop out 0-order beam, change upper limit as needed
 blank = post.normY(blank, "intensity") # normalize to relative intensities (range 0-1)
@@ -108,7 +126,8 @@ blank = post.normY(blank, "intensity") # normalize to relative intensities (rang
 post.calibrate(blank, ref, "angle", "relative_intensity") # run DTW
 
 # Convert from arm angle to wavelength
-blank = post.addWavelengths(blank) # add wavelength column to the blank df
+blank = post.addWavelength(blank) # add wavelength column to the blank df
+blank # notice the added column for wavelength
 blank.plot("wavelength", "intensity") # view results
 plt.show()
 
@@ -116,17 +135,6 @@ post.save("<INSERT>.json") # save calibration results dict for future use
 ```
 
 Note once you have calibrated sucessfully, and the blank spectrum wavelengths look good, you can load your experimental results to dfs and repeat the `addWavelength` function on them to convert the x-axis of any spectrum from arm angle to wavelength. If you wish to use the same calibration in the future, you can save the calibration results to a .json, load the dict at a later time, and add the reloaded calibration dict as a parameter to `addWavelength` instead of recalibrating from the blank and reference data again.
-
-## Tips
-Full documentation of each module can be generated from the docstrings, e.g.
-
-```python
-from CHEM10_Harvard.spectrometer import Spectrometer
-help(Spectrometer)
-# Press `q` to quit the help menu.
-```
-
-Always provide full filepathes for where to store output files, and keep your directories neatly organized! Example blank readings and reference data can be found in the `eg` and `ref` folders. Common mistakes, such as a sweep range that cuts off the desired spectrum, and a spectrum taken at too high a resistance resulting in low SNR, are also included. Note that, from a blank spectrum, we are interested in the wavelength range that resembles the LED reference spectrum (see datasheet and example in `ref` folder), not the large peak nearer `angle=150`, which is the central 0-order beam that we will want to crop out using `Post.cropX`.  
 
 
 

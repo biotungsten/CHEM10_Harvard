@@ -146,8 +146,8 @@ class Post:
                     alpha=0.25
                 )
 
-            plt.xlabel("normalized position")
-            plt.ylabel("relative intensity")
+            plt.xlabel("Normalized position")
+            plt.ylabel("Relative intensity")
             plt.title("DTW Mapping")
             plt.legend()
             plt.tight_layout()
