@@ -17,8 +17,8 @@ dependencies = [
 requires-python = ">=3.12"
 authors = [
   {name = "David Sauer", email = "davidsauer@college.harvard.edu"},
-  {name = "Austin Wang"},
-  {name = "Mara Casabeer"}
+  {name = "Austin Wang", email = "example@example.com"},
+  {name = "Mara Casabeer", email = "example@example.com"}
 ]
 description = "A package for interfacing with the spectrometer built by students in CHEM 10"
 readme = "README.md"
@@ -26,7 +26,7 @@ license = "MIT"
 license-files = ["LICENSE.TXT"]
 
 [project.urls]
-Homepage = "https://github.com/biotungsten/CHEM10_Harvard"
+Code = "https://github.com/biotungsten/CHEM10_Harvard"
 
 [project.optional-dependencies]
 test = [
