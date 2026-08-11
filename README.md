@@ -1,40 +1,23 @@
 # CHEM10_Harvard
 
-This is a package to interface with the spectrometer built in CHEM 10 at Harvard College. You can learn more about CHEM 10 [here]()
+<a href="https://github.com/conda-forge/chem10-harvard-feedstock/actions/workflows/conda-build.yml">
+    <img src="https://github.com/conda-forge/chem10-harvard-feedstock/actions/workflows/conda-build.yml/badge.svg?event=push&branch=main">
+</a>
+
+This is a package to interface with the spectrometer built in CHEM 10 at Harvard College. You can learn more about CHEM 10 [here](https://www.chemistry.harvard.edu/undergraduate-programs/exploration).
+
+Documentation for the spectrometer, including the LED used and calibration data, as well as for the code is provided in `/docs`. If you are a student at Harvard College, more detailed instructions can be found in `STUDENT.md`.
 
 # Installation
- First you have to have installed Python 3.13 or higher ([here](https://docs.python.org/3.13/using/windows.html) are instructions on how to install Python on Windows). Python is pre-installed on macOS and linux. We recommend you setup a virtual envrionment ([venv](https://docs.python.org/3/library/venv.html)) where you use the library. Before activating the virtual environment take care to deactivate all other environments (e.g. other venvs or conda environments). You are also free to use packaging managers (e.g. [uv](https://docs.astral.sh/uv/guides/install-python/), [conda](https://docs.conda.io/en/latest/), ...). This might be advantageous if you plan to work in STEM fields where `conda` is commonly used.
-
-You also need to install arduino-cli. Instructions on its installation can be found [here](https://arduino.github.io/arduino-cli/1.3/installation/). Unless you have already installed the package manager `brew` we recommend that you use the installation script as explained on the linked page.
-
-In the course you will use jupyter notebooks to execute code. In order to be able to use your virtual environment you will need to execute the following line of code (if you want to you can change the name of the kernel by replacing `CHEM10_environment` by your name)
+This package is available on PyPi and conda-forge. Installation is possible via many common package managers as shown below
 ```bash
-python -m ipykernel install --user --name=CHEM10_environment
+pip install chem10-harvard
+conda install -c conda-forge chem10-harvard
+pixi add chem10-harvard
 ```
 
-In order to check that all dependencies are present for the package to work you can install `pytest` and run 
-```bash
-python -m pytest -m environment
-```
+There are additional requirements, that cannot be installed via conda and/or pip.
+1) **telemetrix** (>=1.46): `pip install chem10-harvard[hardware]` or as a seperate install via `pip install telemetrix=1.46`
+2) **arduino-cli** (>=1.4.0): via brew `brew install arduino-cli` or as a [direct installation](https://arduino.github.io/arduino-cli/1.3/installation/)
 
-If you see a green line at the end that says `N passed in N.NNs` you are ready to proceed. 
-
-# [Optional] mamba installation
-Should you use `conda` or one of its derivatives like `mamba` (reccomended), you can install from the .yml file included in the reference files. First, change the prefix line to the location of mamba in your system, e.g. `/Users/johndoe/mamba/envs/chem10`. Then, run the following to build the chem10 environment to that location.
-
-```bash
-mamba env create -f <INSERT>/CHEM10_Harvard/ref/chem10.yml
-```
-
-Alternatively, you can manually create the environment using the following commands. Note it is very important to install `pip` packages AFTER installing `conda` packages, otherwise you will reach dependenecy hell (https://en.wikipedia.org/wiki/Dependency_hell).
-
-```bash
-mamba create -n chem10 -c conda-forge python=3.12 numpy pandas matplotlib scipy dtw-python jupyter ipykernel pytest pytest-cov
-mamba activate chem10
-pip install telemetrix
-```
-
-Then, if you are using VSCode, Ctrl+Shift+P > "Select Interpreter" > choose your mamba env. If your env doesn't show up, go to Terminal and type `mamba env list`, then copy the path and add it as an env in VSCode.
-
-
-
+To verify that these additional requirements are fulfilled you can run `python -m pytest -m environment` (requires `pytest, pytest-cov`).
