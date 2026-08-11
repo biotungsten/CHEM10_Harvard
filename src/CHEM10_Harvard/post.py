@@ -4,16 +4,11 @@ post.py
 AW, DS, MC
 """
 
-
-
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from dtw import dtw
 import json
-
-
 
 
 class Post:
@@ -22,7 +17,6 @@ class Post:
     """
     def __init__(self):
         self.calibration = None
-
 
     def cropX(self, df, x_col, xmin=None, xmax=None):
         """Crop a dataframe by specified col
@@ -47,6 +41,8 @@ class Post:
             new_col = column name to save normalized values in
         OUT: dataframe with new column of normalized values
         """
+        if df[y_col].max() < 1e-10:
+            raise ValueError("Cannot normalize, max value of y_col is 0.")
         out = df.copy()
         out[new_col] = out[y_col] / out[y_col].max()
         return out
@@ -166,6 +162,22 @@ class Post:
         return self.calibration
 
 
+    def _calibration_arrays(self, calibration=None):
+        """Resolve a calibration to (angles, wavelengths) numpy arrays.
+
+        Shared by `angle2wavelength` and `wavelength2angle` so the two
+        directions cannot drift apart. Converting explicitly matters because
+        `save`/`json` round trips the arrays to plain lists.
+        """
+        cal = calibration if calibration is not None else self.calibration
+
+        if cal is None:
+            raise ValueError("No calibration provided, run calibrate() first.")
+
+        return (np.asarray(cal["angles"], dtype=float),
+                np.asarray(cal["wavelengths"], dtype=float))
+
+
     def angle2wavelength(self, angles, calibration=None):
         """Convert arm angles to wavelengths, requires calibration already run
         IN:
@@ -173,14 +185,48 @@ class Post:
             calibration = load calibration dict, if None uses self.calibration
         OUT:
             wavelengths = list of mapped wavelengths
+        NOTE: clamps rather than extrapolating, so angles outside the calibrated
+            range come back as the nearest calibrated endpoint. Sweeping wider
+            than you calibrated therefore yields a run of duplicate wavelengths
+            at the edges, which looks like a real spectral feature but is not.
         """
-        cal = calibration if calibration is not None else self.calibration
-
-        if cal is None:
-            raise ValueError("No calibration provided, run calibrate() first.")
+        ang, wl = self._calibration_arrays(calibration)
 
         # Linear interpolation of the DTW results
-        return np.interp(angles, cal["angles"], cal["wavelengths"])
+        return np.interp(angles, ang, wl)
+
+
+    def wavelength2angle(self, wavelengths, calibration=None):
+        """Convert wavelengths to arm angles; the inverse of `angle2wavelength`.
+
+        Needed whenever you want to park the arm at a *chosen* wavelength rather
+        than read the wavelength of wherever the arm happens to be -- for
+        example, single-wavelength kinetics runs.
+        IN:
+            wavelengths = list or array of wavelengths to convert
+            calibration = load calibration dict, if None uses self.calibration
+        OUT:
+            angles = list of mapped arm angles in degrees
+        NOTE: clamps rather than extrapolating, exactly as `angle2wavelength`
+            does. Check your target is inside the calibrated wavelength range
+            before relying on the result.
+        NOTE: DTW maps many angles onto one wavelength, so the inverse is only
+            defined up to the width of those plateaus. We keep every calibration
+            point rather than collapsing the plateaus, which makes this an exact
+            right inverse: angle2wavelength(wavelength2angle(w)) == w to within
+            floating point. Collapsing plateaus to a representative angle
+            instead breaks the round trip badly (tens of nm) at the band edges,
+            where DTW's boundary condition piles a wide wavelength span onto a
+            single angle.
+        """
+        ang, wl = self._calibration_arrays(calibration)
+
+        # np.interp needs its x non-decreasing. `calibrate` sorts by angle, and
+        # with inverse=True wavelength then runs downwards, so flip both.
+        if wl.size > 1 and wl[0] > wl[-1]:
+            wl, ang = wl[::-1], ang[::-1]
+
+        return np.interp(wavelengths, wl, ang)
 
 
     def addWavelength(

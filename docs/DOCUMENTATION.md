@@ -136,6 +136,37 @@ post.save("<INSERT>.json") # save calibration results dict for future use
 
 Note once you have calibrated sucessfully, and the blank spectrum wavelengths look good, you can load your experimental results to dfs and repeat the `addWavelength` function on them to convert the x-axis of any spectrum from arm angle to wavelength. If you wish to use the same calibration in the future, you can save the calibration results to a .json, load the dict at a later time, and add the reloaded calibration dict as a parameter to `addWavelength` instead of recalibrating from the blank and reference data again.
 
+Be aware that `Post.save` only writes `angles`, `wavelengths` and `inverse` — the DTW alignment object and the resampled curves are not JSON serialisable and are dropped. That is enough for `addWavelength`, but when you reload the dict you must convert the two lists back to numpy arrays, because they are passed straight to `np.interp`.
+
+## Going the other way: wavelength to angle
+`angle2wavelength` answers "what wavelength is the arm looking at?". Single-wavelength work — kinetics runs in particular, where you park the arm and watch one absorbance decay — needs the opposite question, "where do I move the arm to look at 452 nm?". That is `Post.wavelength2angle`, and `Post.addWavelength`'s counterpart for a scalar target:
+
+```python
+arm_angle = float(post.wavelength2angle(452.25))
+servo.move(arm_angle)
+```
+
+Two properties of this inverse are worth understanding before you trust it.
+
+First, **it clamps rather than extrapolating**, exactly as `angle2wavelength` does. A target outside the calibrated range silently returns the nearest calibrated endpoint. Always check your target is inside `min(calibration["wavelengths"])` to `max(...)` first; the same warning applies to sweeping `Spectrometer.measure` over angles wider than the calibration, which yields a run of duplicate wavelengths at the edges that looks like a real spectral feature.
+
+Second, **DTW maps many angles onto one wavelength**, so the inverse is only defined up to the width of those plateaus. On a typical calibration only about a third of the 300 points carry distinct wavelengths. `wavelength2angle` therefore keeps every calibration point instead of collapsing each plateau to a representative angle, which makes it an exact right inverse — `angle2wavelength(wavelength2angle(w)) == w` to within floating point. Collapsing plateaus first is the obvious implementation and it is wrong: it breaks the round trip by tens of nm at the band edges, because DTW's boundary condition piles a wide span of unmatched wavelengths onto the single first and last angle. If you ever rewrite this, that round-trip identity is the property to test.
+
+Both directions share `Post._calibration_arrays`, which resolves the calibration and coerces it to numpy arrays, so the two cannot drift apart and both behave identically whether they are handed a live calibration or one reloaded from JSON.
+
+## DTW is the only angle/wavelength mechanism
+The legacy MATLAB labs calibrated the instrument with Bragg's law: a `w2a.m` helper converted wavelength to diffraction angle through $\lambda = d\sin\theta$, using a hardcoded grating period, anchored on a peak the student read off a plot by hand.
+
+**That approach is deliberately not carried over, and there is no grating-period parameter anywhere in this package.** DTW calibration in `Post.calibrate` replaces it completely. The reasons: it needs no grating constant, no hand-picked peak, and no assumption that the arm pivots exactly on the grating — it matches the measured blank against the manufacturer's reference spectrum and derives the whole mapping from the curve shape. Adding a Bragg-law path back in would give two different answers to the same question, `angle2wavelength` and an `a2w`, which is exactly the redundancy this API avoids.
+
+To validate a calibration, do not reach for a grating period. Check it against itself and against the lamp:
+
+1. **Round trip.** `angle2wavelength(wavelength2angle(w))` must return `w`.
+2. **Monotonicity.** The angle → wavelength curve must be smooth and monotonic. A staircase or a curve that doubles back means DTW found a bad alignment, almost always because the 0-order beam was not fully cropped before calibrating.
+3. **Known peaks.** The calibrated blank's peaks must land where the LED datasheet says they do. On the example blank in `docs/examples/blank_good.json` the blue die peak comes out at 446 nm and the phosphor hump at 589 nm, spanning 404–720 nm overall — both physically right for a white LED.
+
+Failing (2) or (3) means recalibrate; there is no meaningful way to patch a bad DTW alignment after the fact.
+
 # Testing
 Inside `/test` you can find the unit tests for internal dev testing.
 Inside `/src/tests` you can find unit tests that are exposed to the users for checking their installation and the hardware they are using.
