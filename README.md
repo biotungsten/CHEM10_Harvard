@@ -4,9 +4,12 @@
     <img src="https://github.com/conda-forge/chem10-harvard-feedstock/actions/workflows/conda-build.yml/badge.svg?event=push&branch=main">
 </a>
 
+
 This is a package to interface with the spectrometer built in CHEM 10 at Harvard College. You can learn more about CHEM 10 [here](https://www.chemistry.harvard.edu/undergraduate-programs/exploration).
 
-Documentation for the spectrometer, including the LED used and calibration data, as well as for the code is provided in `/docs`. If you are a student at Harvard College, more detailed instructions can be found in `STUDENT.md`.
+Documentation for the spectrometer, including the LED used and calibration data, as well as for the code is provided in `/docs`. 
+
+If you are a student at Harvard College, more detailed instructions can be found in `STUDENT.md`.
 
 # Installation
 This package is available on PyPi and conda-forge. Installation is possible via many common package managers as shown below
