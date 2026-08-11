@@ -135,3 +135,7 @@ post.save("<INSERT>.json") # save calibration results dict for future use
 ```
 
 Note once you have calibrated sucessfully, and the blank spectrum wavelengths look good, you can load your experimental results to dfs and repeat the `addWavelength` function on them to convert the x-axis of any spectrum from arm angle to wavelength. If you wish to use the same calibration in the future, you can save the calibration results to a .json, load the dict at a later time, and add the reloaded calibration dict as a parameter to `addWavelength` instead of recalibrating from the blank and reference data again.
+
+# Testing
+Inside `/test` you can find the unit tests for internal dev testing.
+Inside `/src/tests` you can find unit tests that are exposed to the users for checking their installation and the hardware they are using.

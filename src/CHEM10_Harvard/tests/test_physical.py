@@ -1,4 +1,5 @@
 import pytest
+pytest.importorskip("telemetrix")
 from CHEM10_Harvard.arduino import ArduinoBoard
 import time
 import numpy as np

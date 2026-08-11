@@ -70,7 +70,15 @@ In order to check that you installed everything correctly you should install the
 
 In order to check that all dependencies are present for the package to work you can install `pytest` and run 
 ```bash
-python -m pytest -m environment
+python -m pytest --pyargs CHEM10_Harvard -m environment
 ```
+(`--pyargs CHEM10_Harvard` tells pytest to find these tests inside your installed copy of the package, so this works no matter which directory you run it from.)
 
 If you see a green line at the end that says `N passed in N.NNs` you are ready to proceed. 
+
+## Verifying your hardware setup
+Once you have installed the `hardware` extra (`pip install "CHEM10_Harvard[hardware]"`) and built the physical circuit for testing described in `docs/DOCUMENTATION.md`, you can run an interactive check that walks through each component:
+```bash
+python -m pytest --pyargs CHEM10_Harvard -m physical -s
+```
+The `-s` flag is required so pytest doesn't swallow the `input()` prompts these tests use to ask you to confirm what you observe (e.g. "was the LED blinking?"). This also requires `arduino-cli` to be installed and the board to be connected and powered on.
