@@ -20,7 +20,7 @@ pixi add chem10-harvard
 ```
 
 There are additional requirements, that cannot be installed via conda and/or pip.
-1) **telemetrix** (>=1.46): `pip install chem10-harvard[hardware]` or as a seperate install via `pip install telemetrix=1.46`
+1) **telemetrix** (>=1.46): `pip install 'chem10-harvard[hardware']` or as a arate install via `pip install telemetrix==1.46`
 2) **arduino-cli** (>=1.4.0): via brew `brew install arduino-cli` or as a [direct installation](https://arduino.github.io/arduino-cli/1.3/installation/)
 
 To verify that these additional requirements are fulfilled you can run `python -m pytest -m environment` (requires `pytest, pytest-cov`).
