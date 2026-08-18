@@ -82,3 +82,15 @@ Once you have installed the `hardware` extra (`pip install "CHEM10_Harvard[hardw
 python -m pytest --pyargs CHEM10_Harvard -m physical -s
 ```
 The `-s` flag is required so pytest doesn't swallow the `input()` prompts these tests use to ask you to confirm what you observe (e.g. "was the LED blinking?"). This also requires `arduino-cli` to be installed and the board to be connected and powered on.
+
+## Running Jupyter notebooks
+
+A jupyter notebook allows you to interactively run Python code, alongside text and pictures. There are multiple ways to execute a jupyter notebook. The easiest way is to launch an instance of jupyter in your terminal by running
+```bash
+jupyter notebook
+```
+in the directory containing your notebook. You will see a long output at the end of which you will see a list of URLs that you can copy and paste into your browser to access the user interface. There you can choose the notebook and begin working. 
+
+Alternatively many IDEs such as VSCode have extensions that allow you to run Jupyter notebooks inside of them. You can find a tutorial how to do so in VSCode [here](https://code.visualstudio.com/docs/datascience/jupyter-notebooks). 
+
+As a reminder, make sure you select the correct environment when executing your notebook. 
