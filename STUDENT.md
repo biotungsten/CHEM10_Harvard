@@ -77,7 +77,7 @@ python -m pytest --pyargs CHEM10_Harvard -m environment
 If you see a green line at the end that says `N passed in N.NNs` you are ready to proceed. 
 
 ## Verifying your hardware setup
-Once you have installed the `hardware` extra (`pip install "CHEM10_Harvard[hardware]"`) and built the physical circuit for testing described in `docs/DOCUMENTATION.md`, you can run an interactive check that walks through each component:
+Once you have installed the `hardware` extra (`pip install "CHEM10_Harvard[hardware]"`, or by installing `telemtrix` manually) and built the physical circuit for testing described in `docs/DOCUMENTATION.md`. Additionally you need to install the `pytest` and `pytest-cov` packages with the package manager of your choice (also available via `pip install "CHEM10_Harvard[test]"`). Then you can run an interactive check that walks through each component:
 ```bash
 python -m pytest --pyargs CHEM10_Harvard -m physical -s
 ```
