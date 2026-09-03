@@ -11,7 +11,7 @@ Working with python you will have to deal with many packages. These packages all
 Package managers generally create what is called an environment. This is a layer of abstraction that isolates the python executable that you are using and the packages installed. It ensures that e.g. if you have a different version of a package installed in a different environment, you use the correct version.
 
 ## Pip + venv
-First we want to create a virtual environemnet using the built-in `venv` tool. In the directory in which you want to install your environment you can run
+First we want to create a virtual environment using the built-in `venv` tool. In the directory in which you want to install your environment you can run
 ```bash
 python -m venv /path/to/new/virtual/environment
 ```
