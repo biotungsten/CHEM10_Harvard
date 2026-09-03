@@ -122,8 +122,13 @@ class ArduinoBoard:
         try:
             telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"], arduino_wait=4) # do not reduce arudino_wait, this leads to script breaking
         except RuntimeError as e:
-            subprocess.run(["arduino-cli", "compile", "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True)
-            subprocess.run(["arduino-cli", "upload", "-p", self._arduino_board_spec["address"], "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True)
+            # Timeouts here so that a stalled arduino-cli fails loudly instead of blocking the session with no feedback
+            try:
+                subprocess.run(["arduino-cli", "compile", "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True, timeout=config.ARDUINO_CLI_COMPILE_TIMEOUT)
+                subprocess.run(["arduino-cli", "upload", "-p", self._arduino_board_spec["address"], "--fqbn", self._arduino_board_spec["fqbn"], self._path_to_telemetrix4arduino], check=True, timeout=config.ARDUINO_CLI_UPLOAD_TIMEOUT)
+            except subprocess.TimeoutExpired as timeout_error:
+                failed_command = " ".join(str(arg) for arg in timeout_error.cmd)
+                raise Exception(f"arduino-cli timed out after {timeout_error.timeout} seconds running [{failed_command}]. The Arduino board may be unresponsive: unplug it, plug it back in, and try again.") from timeout_error
             telemetrix_board = telemetrix.Telemetrix(com_port=self._arduino_board_spec["address"], arduino_wait=4)
         self._telemetrix_board = telemetrix_board
 

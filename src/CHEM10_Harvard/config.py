@@ -9,3 +9,7 @@ SERVO_H_ALLOWED_PINS = [9, 10]
 # Define Telemetrix4Arduino callback pin mode values
 CB_DIGITAL = 2
 CB_ANALOG = 3
+
+# Timeouts (in seconds) for arduino-cli subprocesses, so a stalled call fails loudly instead of hanging the session
+ARDUINO_CLI_COMPILE_TIMEOUT = 180
+ARDUINO_CLI_UPLOAD_TIMEOUT = 60
