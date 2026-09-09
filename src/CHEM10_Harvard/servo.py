@@ -11,8 +11,10 @@ from CHEM10_Harvard.arduino import ArduinoBoard
 
 from pathlib import Path
 import json
+import csv
 import time
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 
@@ -44,6 +46,7 @@ class Servo:
         self.pin_servoread = pin_servoread # usually pin 0
         self.path_lut = Path(path_lut) # lookup table saved json path
         self.lut = {} # lookup table dict
+        self.records = pd.DataFrame() # calibration records dataframe
         self._closed = False
         self._board_key = id(self.board)
 
@@ -96,6 +99,11 @@ class Servo:
         """Save lookup table"""
         with open(self.path_lut, "w") as f:
             json.dump(self.lut, f, indent=2)
+        
+        csv_path = self.path_lut.with_name(
+            f"{self.path_lut.stem}_records.csv"
+        )
+        self.records.to_csv(csv_path, index=False)
 
 
     def load(self):
@@ -106,7 +114,7 @@ class Servo:
         return self.lut
 
 
-    def calibrate(self, angles=(85, 180), step=5):
+    def calibrate(self, angles=(85, 180), step=5, runs=3):
         """Calibrate servo over specified angle range, make lookup table
         IN:
             angles : float tuple = angle range for calibration in deg.
@@ -114,17 +122,43 @@ class Servo:
         OUT:
             tbl : lookup table, also saved to file.
         """
-        tbl = {}
+        records = []
 
-        for angle in range(angles[0], angles[1] + 1, step):
-            self.move(angle)
-            reading = self.readPosition()
-            tbl[angle] = reading
-            print(f"angle = {angle}, reading = {reading:.2f}")
+        for i in range(1, runs + 1):
+            print(f"Servo calibration run {i}")
 
-        self.lut = tbl
+            for angle in range(angles[0], angles[1] + 1, step):
+                self.move(angle)
+                reading = self.readPosition()
+
+                records.append({
+                    "run": i,
+                    "angle": angle,
+                    "reading": reading,
+                })
+
+                print(
+                    f"run = {i}, "
+                    f"angle = {angle}, "
+                    f"reading = {reading:.2f}"
+                )
+
+        self.records = pd.DataFrame(records)
+
+        averages = (
+            self.records
+            .groupby("angle", as_index=False)["reading"]
+            .mean()
+        )
+        self.lut = dict(
+            zip(
+                averages["angle"].astype(int),
+                averages["reading"],
+            )
+        )
+
         self.save()
-        return tbl
+        return self.lut
 
 
     def getAngle(self, reading):
@@ -135,7 +169,8 @@ class Servo:
             angle : float = linearly interpolated predicted angle
             error : float = half the difference of closest lut measurements
         """
-        self.load()
+        if not self.lut:
+            self.load()
         if not self.lut:
             raise RuntimeError("No lookup table loaded.")
 

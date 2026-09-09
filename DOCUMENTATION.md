@@ -87,9 +87,9 @@ servo.calibrate()
 spec = Spectrometer(servo, 5)
 
 # Take a spectrum
-angles, intensities = spec.measure() # adjust parameters as needed, set `runs=1` to make faster
-spec.plot(angles, intensities, path="<INSERT>.png", show_runs = True)
-spec.save(angles, intensities, path="<INSERT>.json")
+spec.measure() # adjust parameters as needed, set `runs=1` to make faster
+spec.plot(spec.curves["angle"], spec.curves["intensity"], path="<INSERT>.png", show_runs = True)
+spec.save(path="<INSERT>.csv")
 ```
 
 You can repeat the steps to take a spectrum as many times as necessary, using your samples of interest. Always take a blank spectrum first, with nothing in the cuvette slot, before conducting your experiment. The blank will be important for postprocessing, specifically calibration between servo arm angle and diffraction grating wavelength.
@@ -106,7 +106,8 @@ post = Post() # instantiate the Post module
 
 # Load data
 ref = pd.read_csv('<INSERT>/ref/led_spectrum.csv') # given reference led spectrum .csv
-blank = pd.read_json('<INSERT>.json') # your blank spectrum .json
+blank = pd.read_csv('<INSERT>.csv') # your blank spectrum .csv
+blank = blank.sort_values(by='angle')
 
 # Take a look at the blank and reference spectra, the curves should have the same shape
 blank.plot("angle", "intensity")
@@ -119,7 +120,7 @@ plt.show()
 # spectrometer arm angle to wavelength from the diffraction grating. You are encouraged 
 # to read through the `Post` module code to learn more!
 
-blank = post.cropX(blank, "angle", None, 125) # crop out 0-order beam, change upper limit as needed
+blank = post.cropX(blank, "angle", None, 125) # crop out 0-order beam, change upper limit as needed, important to crop a similarly sized window to reference!
 blank = post.normY(blank, "intensity") # normalize to relative intensities (range 0-1)
 
 # Calibration
