@@ -48,7 +48,17 @@ class Post:
         OUT: dataframe with new column of normalized values
         """
         out = df.copy()
-        out[new_col] = out[y_col] / out[y_col].max()
+
+        minimum = out[y_col].min()
+        maximum = out[y_col].max()
+        diff = maximum - minimum
+
+        if diff == 0: out[new_col] = 0.0
+        else:
+            out[new_col] = (
+                (out[y_col] - minimum) / diff
+            )
+
         return out
 
 

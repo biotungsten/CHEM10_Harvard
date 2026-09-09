@@ -107,7 +107,7 @@ post = Post() # instantiate the Post module
 # Load data
 ref = pd.read_csv('<INSERT>/ref/led_spectrum.csv') # given reference led spectrum .csv
 blank = pd.read_csv('<INSERT>.csv') # your blank spectrum .csv
-blank = blank.sort_values(by='angle')
+#blank = blank.sort_values(by='angle')
 
 # Take a look at the blank and reference spectra, the curves should have the same shape
 blank.plot("angle", "intensity")
