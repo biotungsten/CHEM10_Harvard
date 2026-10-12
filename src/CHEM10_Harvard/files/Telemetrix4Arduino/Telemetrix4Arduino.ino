@@ -736,7 +736,7 @@ void set_pin_mode()
     case AT_ANALOG:
     // The following check is there to guard against using a pin that is beyond A6. 
     // In the past this led to integer overflows mapping random numbers to actual pins.
-      if pin > 6 {
+      if (pin > 6) {
         send_dbg_info(ERR_BAD_PIN, pin);
         return;
       }
