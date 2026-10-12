@@ -453,6 +453,8 @@ bool sonar_reporting_enabled = true;  // flag to start and stop sonar reporting
 #define REPORTING_ANALOG_DISABLE 3
 #define REPORTING_DIGITAL_DISABLE 4
 
+// error reporting code
+#define ERR_BAD_PIN 81
 
 // DHT Report sub-types
 #define DHT_DATA 0
@@ -531,35 +533,35 @@ TwoWire *current_i2c_port;
 // pins may not exist for the board in use.
 
 #ifndef A8
-#define A8 2047
+#define A8 2040
 #endif
 
 #ifndef A9
-#define A9 2047
+#define A9 2040
 #endif
 
 #ifndef A10
-#define A10 2047
+#define A10 2040
 #endif
 
 #ifndef PIN_A11
-#define A11 2047
+#define A11 2040
 #endif
 
 #ifndef PIN_A12
-#define A12 2047
+#define A12 2040
 #endif
 
 #ifndef PIN_A13
-#define A13 2047
+#define A13 2040
 #endif
 
 #ifndef PIN_A14
-#define A14 2047
+#define A14 2040
 #endif
 
 #ifndef PIN_A15
-#define A15 2047
+#define A15 2040
 #endif
 
 // To translate a pin number from an integer value to its analog pin number
@@ -732,6 +734,13 @@ void set_pin_mode()
       pinMode(pin, OUTPUT);
       break;
     case AT_ANALOG:
+    // The following check is there to guard against using a pin that is beyond A6. 
+    // In the past this led to integer overflows mapping random numbers to actual pins.
+      if pin > 6 {
+        send_dbg_info(ERR_BAD_PIN, pin);
+        return;
+      }
+
       the_analog_pins[pin].pin_mode = mode;
       the_analog_pins[pin].differential = (command_buffer[2] << 8) + command_buffer[3];
       the_analog_pins[pin].reporting_enabled = command_buffer[4];
