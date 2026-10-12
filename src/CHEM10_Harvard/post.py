@@ -12,8 +12,42 @@ import json
 
 
 class Post:
-    """Post-processing tools for spectrometer, including angle to wavelength 
-    mapping
+    """Post-processing tools for spectrometer, including angle to wavelength
+    mapping.
+
+    `Post` is the only one of the three spectrometer classes that never touches
+    hardware: it holds no board, no servo and no pins, and every method is a
+    pure pandas/numpy transform. That is deliberate -- it means postprocessing
+    can be redone, and a calibration reloaded and reused, long after the
+    instrument has been packed away. The single point where results flow back
+    towards hardware is `wavelength2angle`, whose output you hand to
+    `Servo.move`.
+
+    DATAFRAME CONTRACT
+    Every df-taking method copies its input and returns a new df; nothing is
+    modified in place. The spectrum dataframes flowing through this class are
+    long-form, one row per arm position, and gain columns as they progress:
+
+        angle               deg, commanded arm angle. Written by
+                            `Spectrometer.save` / `pd.read_json`.
+        intensity           raw ADC counts (0-1023) from the phototransistor.
+        relative_intensity  added by `normY`, intensity scaled to peak = 1.
+        wavelength          nm, added by `addWavelength`.
+
+    Labs typically add an `absorbance` column of their own; nothing here
+    depends on it.
+
+    THE CALIBRATION DICT
+    `self.calibration` is set by `calibrate` (or assigned by hand from a
+    reloaded JSON) and is consumed by `angle2wavelength`, `wavelength2angle`
+    and `addWavelength`. Its keys are documented in full on `calibrate`.
+    Methods taking a `calibration=` argument use that dict instead of
+    `self.calibration`, so several calibrations can be compared without
+    reinstantiating `Post`.
+
+    PARAMS:
+        calibration : dict | None = angle -> wavelength mapping, None until
+            `calibrate` runs or a saved dict is assigned
     """
     def __init__(self):
         self.calibration = None
@@ -25,7 +59,13 @@ class Post:
             x_col = column name of x values
             xmin = minimum x value to keep (inclusive)
             xmax = maximum x value to keep (inclusive)
-        OUT: cropped dataframe
+        OUT: cropped dataframe, same columns and dtypes as `df`, with the row
+            index reset to 0..n-1
+        NOTE: this is the first step of the calibration lifecycle. A blank must
+            have the 0-order beam cropped off before `calibrate` sees it,
+            because DTW aligns whole curves: leaving that peak in gives the
+            reference spectrum nothing to match it against and produces a
+            staircased, non-monotonic angle -> wavelength curve.
         """
         out = df.copy()
         if xmin is not None: out = out[out[x_col] >= xmin]
@@ -39,7 +79,15 @@ class Post:
             df = input dataframe
             y_col = column name of y values to normalize
             new_col = column name to save normalized values in
-        OUT: dataframe with new column of normalized values
+        OUT: dataframe with one added float column `new_col`, holding
+            `y_col` divided by its maximum, so values run 0-1 with peak = 1
+        NOTE: the blank is normalised because the reference spectrum from the
+            LED datasheet is itself relative (peak = 1) and the two curves must
+            be on a common vertical scale before DTW compares them. `calibrate`
+            renormalises internally as well, so this step is about being able
+            to eyeball the two curves together, not about correctness.
+        RAISES: ValueError if the max of `y_col` is ~0 (an all-dark sweep --
+            check the 9V battery and the LED).
         """
         if df[y_col].max() < 1e-10:
             raise ValueError("Cannot normalize, max value of y_col is 0.")
@@ -60,25 +108,56 @@ class Post:
         inverse=True,
         plot=True
     ):
-        """Calibrate angle -> wavelength mapping using dynamic time warping (DTW) 
+        """Calibrate angle -> wavelength mapping using dynamic time warping (DTW)
         between blank spectrum and reference spectrum (from LED manufacturer datasheet)
+
+        This is the second and last calibration of the instrument. The first,
+        `Servo.calibrate`, checks that the arm goes where it is told; this one
+        gives physical meaning to where it went. It must be run on a blank --
+        an empty cuvette slot, so the phototransistor sees the bare LED -- with
+        the 0-order beam already cropped off (`cropX`) and the intensities
+        normalised (`normY`).
         IN:
-            blank = df of blank spectrum
-            ref = df of reference spectrum
+            blank = df of blank spectrum, needs the two blank_col_* columns
+            ref = df of reference spectrum, needs the two ref_col_* columns;
+                ships as `ref/led_spectrum.csv`
             blank_col_angle = col name of angle values in blank df
             blank_col_intensity = col name of relative intensity values in blank df
             ref_col_wavelength = col name of wavelength values in ref df
             ref_col_intensity = col name of relative intensity values in ref df
-            n = # points to resample for DTW
-            inverse = if increasing angles correspond to decreasing wavelengths
-            plot = whether to plot calibration procedure
-        OUT: calibration dict with keys:
-            angles = list of angles
-            wavelengths = list of corresponding wavelengths
-            alignment = DTW alignment object with matched indices
-            blank_resampled = resampled blank spectrum used for DTW
-            ref_resampled = resampled reference spectrum used for DTW
-            inverse = inverse setting that user inputted
+            n = # points to resample for DTW; both curves are interpolated onto
+                a common n-point grid, so n sets the resolution of the mapping
+                rather than of the measurement
+            inverse = if increasing angles correspond to decreasing wavelengths.
+                True for this instrument's geometry, and the default in every lab
+            plot = whether to plot calibration procedure (DTW correspondence,
+                then the resulting angle -> wavelength curve)
+        OUT: calibration dict, also stored on `self.calibration`, with keys:
+            angles : ndarray, float, shape (m,), strictly increasing degrees.
+                m <= n; it is the number of *distinct* angles DTW matched,
+                after duplicate matches are averaged together. m == n in
+                practice, since resampling onto a linear grid rarely repeats.
+            wavelengths : ndarray, float, shape (m,), nm, aligned elementwise
+                with `angles`. Non-increasing when inverse=True. Contains far
+                fewer distinct values than m -- roughly a third on a typical
+                calibration -- because DTW matches runs of angles onto a single
+                wavelength. Those plateaus are expected, not a defect.
+            alignment : DTW object from the `dtw` package, `keep_internals=True`.
+                `alignment.index1` / `.index2` are the matched index pairs into
+                the resampled blank and reference.
+            blank_resampled : ndarray, float, shape (n,), blank intensity on the
+                common grid, peak-normalised
+            ref_resampled : ndarray, float, shape (n,), reference intensity on
+                the same grid, reversed if inverse=True
+            inverse : bool, the setting that produced this mapping
+        NOTE: only `angles`, `wavelengths` and `inverse` survive `save` -- see
+            that method. The other three keys are diagnostics for the plots.
+        NOTE: validate the result before trusting it. The angle -> wavelength
+            curve must be smooth and monotonic; the calibrated blank's peaks
+            must land where the LED datasheet says (blue die ~446 nm, phosphor
+            hump ~589 nm, span ~404-720 nm on the shipped example); and
+            `angle2wavelength(wavelength2angle(w))` must return `w`. A bad DTW
+            alignment cannot be patched afterwards -- crop harder and recalibrate.
         """
         b = blank.sort_values(blank_col_angle).reset_index(drop=True)
         r = ref.sort_values(ref_col_wavelength).reset_index(drop=True)
@@ -237,12 +316,22 @@ class Post:
         calibration=None
     ):
         """Add wavelength column to experiment dataframes.
+
+        This is the routine workhorse: run it once on the blank to check the
+        calibration, then on every sample df to put its x-axis in nm. Sample
+        spectra are calibrated with the blank's calibration, never with one of
+        their own -- an absorbing sample is the wrong shape to align against
+        the LED reference.
         IN:
             df = input df
             angle_col = col name of angle values in df
             new_col = col name to save wavelength values in df
             calibration = load calibration dict, if None uses self.calibration
-        OUT: df with added column of wavelength values
+        OUT: copy of `df` with one added float column `new_col` in nm; row
+            order and every existing column are untouched
+        NOTE: inherits the clamping of `angle2wavelength`. Angles outside the
+            calibrated range come back as the nearest calibrated endpoint, so
+            keep `Spectrometer.measure` inside `calibration["angles"]`.
         """
         out = df.copy()
         out[new_col] = self.angle2wavelength(out[angle_col], calibration)
@@ -251,8 +340,26 @@ class Post:
 
     def save(self, path):
         """Save calibration dict to json file
+
+        Writes only the three keys needed to reuse the mapping -- `angles`,
+        `wavelengths` and `inverse` -- as plain JSON lists. `alignment`,
+        `blank_resampled` and `ref_resampled` are dropped: the DTW object is
+        not JSON serialisable and the resampled curves are diagnostics that the
+        conversion methods never read.
+
+        To reload, parse the JSON and put the two lists back into numpy arrays
+        before assigning to `self.calibration`, because they are handed
+        straight to `np.interp`:
+
+            with open(path) as f:
+                cal = json.load(f)
+            cal["angles"] = np.asarray(cal["angles"], dtype=float)
+            cal["wavelengths"] = np.asarray(cal["wavelengths"], dtype=float)
+            post.calibration = cal
+
         IN: path = filepath to save json
         OUT: None, saves json
+        RAISES: ValueError if there is no calibration to save.
         """
         if self.calibration is None:
             raise ValueError("No calibration to save.")
