@@ -158,6 +158,10 @@ class Post:
             hump ~589 nm, span ~404-720 nm on the shipped example); and
             `angle2wavelength(wavelength2angle(w))` must return `w`. A bad DTW
             alignment cannot be patched afterwards -- crop harder and recalibrate.
+        NOTE: DTW matches curve *shapes*, so it is thrown off when the blank's
+            peak heights differ from the datasheet's (weak battery, detector
+            response, alignment). `calibratePeaks` uses only peak positions and
+            is the more robust choice in that case.
         """
         b = blank.sort_values(blank_col_angle).reset_index(drop=True)
         r = ref.sort_values(ref_col_wavelength).reset_index(drop=True)
@@ -235,6 +239,187 @@ class Post:
             plt.xlabel(blank_col_angle)
             plt.ylabel(ref_col_wavelength)
             plt.title("Angle to Wavelength Calibration")
+            plt.tight_layout()
+            plt.show()
+
+        return self.calibration
+
+
+    @staticmethod
+    def _refineExtremum(x, y, i, half_window):
+        """Sub-sample position of the extremum at index i: least-squares
+        parabola through the points within `half_window` of `y[i]` (contiguous
+        around i, at least 3), returning its vertex. Falls back to x[i] when
+        the fit is degenerate or its vertex leaves the window.
+        """
+        lo = hi = i
+        while lo > 0 and abs(y[lo - 1] - y[i]) <= half_window: lo -= 1
+        while hi < len(y) - 1 and abs(y[hi + 1] - y[i]) <= half_window: hi += 1
+        lo, hi = max(0, min(lo, i - 1)), min(len(y) - 1, max(hi, i + 1))
+        if hi - lo < 2:
+            return float(x[i])
+
+        a, b, _ = np.polyfit(x[lo:hi + 1], y[lo:hi + 1], 2)
+        if a == 0:
+            return float(x[i])
+        vertex = -b / (2 * a)
+        return float(vertex) if x[lo] <= vertex <= x[hi] else float(x[i])
+
+
+    def _findFeatures(self, x, y):
+        """Locate the two main peaks and the valley between them.
+        IN:
+            x = ndarray, strictly increasing positions (angles or wavelengths)
+            y = ndarray, intensities aligned with x
+        OUT: ndarray of 3 floats, ascending x: [first peak, valley, second peak]
+        NOTE: peaks are the two most *prominent* interior local maxima of a
+            3-point smoothed copy of y, so absolute heights never matter, only
+            how far each peak stands out from its surroundings. Edge points are
+            never peaks, but an uncropped 0-order beam will still win.
+        RAISES: ValueError if fewer than two interior maxima exist.
+        """
+        y = y - y.min()
+        ys = np.convolve(np.pad(y, 1, mode="edge"), np.ones(3) / 3, "valid")
+
+        maxima = [i for i in range(1, len(ys) - 1)
+                  if ys[i] > ys[i - 1] and ys[i] >= ys[i + 1]]
+        if len(maxima) < 2:
+            raise ValueError("Need two peaks to calibrate, found "
+                             f"{len(maxima)}. Check the crop and the LED.")
+
+        # Prominence: height above the higher of the two lowest points
+        # reached before meeting a taller peak (or the edge) on either side
+        def prominence(i):
+            left = ys[:i + 1]
+            taller = np.nonzero(left > ys[i])[0]
+            lmin = left[taller[-1]:].min() if taller.size else left.min()
+            right = ys[i:]
+            taller = np.nonzero(right > ys[i])[0]
+            rmin = right[:taller[0] + 1].min() if taller.size else right.min()
+            return ys[i] - max(lmin, rmin)
+
+        prom = {i: prominence(i) for i in maxima}
+        p1, p2 = sorted(sorted(maxima, key=prom.get)[-2:])
+        v = p1 + int(np.argmin(ys[p1:p2 + 1]))
+
+        def refine(i, depth, find_max):
+            # Snap to the raw extremum near the smoothed one, then fit
+            nb = slice(max(0, i - 2), min(len(y), i + 3))
+            j = nb.start + int(np.argmax(y[nb]) if find_max else np.argmin(y[nb]))
+            return self._refineExtremum(x, y, j, 0.25 * depth)
+
+        depth_v = min(ys[p1], ys[p2]) - ys[v]
+        return np.array([refine(p1, prom[p1], True),
+                         refine(v, depth_v, False),
+                         refine(p2, prom[p2], True)])
+
+
+    def calibratePeaks(
+        self,
+        blank,
+        ref,
+        blank_col_angle="angle",
+        blank_col_intensity="intensity",
+        ref_col_wavelength="wavelength",
+        ref_col_intensity="intensity",
+        inverse=True,
+        n=300,
+        plot=True
+    ):
+        """Calibrate angle -> wavelength mapping with a straight line through
+        matched spectral features (blue die peak, valley, phosphor peak)
+
+        An alternative to `calibrate` that uses only *where* the features are,
+        never how tall they are. The white LED has two peaks (blue die ~445 nm,
+        phosphor hump ~590 nm) with a valley between; those three positions
+        are found in the blank (in degrees) and in the reference (in nm),
+        paired up, and a least-squares line wavelength = slope*angle +
+        intercept is fit through them. Because the dark offset is subtracted
+        and only positions are used, a blank whose blue peak is twice the
+        phosphor's -- or half -- calibrates exactly the same.
+        IN:
+            blank = df of blank spectrum with the 0-order beam cropped off
+                (`cropX`); normalisation is optional, raw counts work
+            ref = df of reference spectrum, ships as `ref/led_spectrum.csv`
+            blank_col_angle = col name of angle values in blank df
+            blank_col_intensity = col name of intensity values in blank df
+            ref_col_wavelength = col name of wavelength values in ref df
+            ref_col_intensity = col name of intensity values in ref df
+            inverse = if increasing angles correspond to decreasing wavelengths.
+                True for this instrument's geometry
+            n = # points on which the line is tabulated for `self.calibration`
+            plot = whether to plot detected features and the fitted line
+        OUT: calibration dict, also stored on `self.calibration`, with the same
+            `angles`, `wavelengths` and `inverse` keys as `calibrate` (so every
+            conversion method and `save` work unchanged), plus:
+            slope : float, nm/deg
+            intercept : float, nm
+            features : list of (name, angle, wavelength) tuples, the matched
+                pairs the line was fit through
+            residuals : ndarray, nm, fitted minus reference wavelength per
+                feature. More than a few nm means a feature was misdetected.
+            method : "peaks"
+        NOTE: `angles` spans the blank's angle range only, and conversions
+            clamp outside it, exactly as for a DTW calibration.
+        RAISES: ValueError if either curve lacks two peaks, or if the fitted
+            slope's sign contradicts `inverse`.
+        """
+        b = blank.sort_values(blank_col_angle).reset_index(drop=True)
+        r = ref.sort_values(ref_col_wavelength).reset_index(drop=True)
+        bx = b[blank_col_angle].to_numpy(dtype=float)
+        by = b[blank_col_intensity].to_numpy(dtype=float)
+        rx = r[ref_col_wavelength].to_numpy(dtype=float)
+        ry = r[ref_col_intensity].to_numpy(dtype=float)
+
+        blank_feat = self._findFeatures(bx, by)
+        ref_feat = self._findFeatures(rx, ry)
+        names = ["blue", "valley", "phosphor"]  # ascending wavelength
+        if inverse:
+            ref_feat, names = ref_feat[::-1], names[::-1]
+
+        slope, intercept = np.polyfit(blank_feat, ref_feat, 1)
+        if (slope < 0) != inverse:
+            raise ValueError(
+                f"Fitted slope {slope:.2f} nm/deg contradicts inverse={inverse}; "
+                "features were probably misdetected.")
+
+        angles = np.linspace(bx.min(), bx.max(), n)
+        self.calibration = {
+            "angles": angles,
+            "wavelengths": slope * angles + intercept,
+            "inverse": inverse,
+            "slope": float(slope),
+            "intercept": float(intercept),
+            "features": [(nm, float(a), float(w))
+                         for nm, a, w in zip(names, blank_feat, ref_feat)],
+            "residuals": slope * blank_feat + intercept - ref_feat,
+            "method": "peaks",
+        }
+
+        if plot:
+            fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+            axs[0].plot(bx, by)
+            axs[1].plot(rx, ry, color="tab:orange")
+            for ax, xs, fx, fy in ((axs[0], bx, blank_feat, by),
+                                   (axs[1], rx, ref_feat, ry)):
+                for f, nm in zip(fx, names):
+                    ax.axvline(f, ls="--", alpha=0.5, color="k")
+                    ax.annotate(nm, (f, np.interp(f, xs, fy)))
+            axs[0].set_xlabel(blank_col_angle)
+            axs[0].set_title("Blank features")
+            axs[1].set_xlabel(ref_col_wavelength)
+            axs[1].set_title("Reference features")
+            plt.tight_layout()
+            plt.show()
+
+            plt.figure()
+            plt.plot(angles, self.calibration["wavelengths"], label="fit")
+            plt.scatter(blank_feat, ref_feat, color="k", zorder=3,
+                        label="features")
+            plt.xlabel(blank_col_angle)
+            plt.ylabel(ref_col_wavelength)
+            plt.title(f"Peak calibration: {slope:.2f} nm/deg")
+            plt.legend()
             plt.tight_layout()
             plt.show()
 

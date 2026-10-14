@@ -55,7 +55,7 @@ We have three sets of tests. The first set of tests checks everything that is pu
 The third set of tests is marked with `environment` and checks that all required packages are installed and a jupyter kernel with CHEM10_Harvard available in it is available.
 
 # Spectrometer
-Before you can use the spectrometer, you will have to connect the board, creating an `ArduinoBoard` instance. The spectrometer has three major submodules: `Servo`, `Spectrometer`, and `Post`. The `Servo` module provides basic functionality to connect to and calibrate the servo motor. It will produce a LUT between the input arm angle and the output voltage reading. The `Spectrometer` module allows for measurement of intensity spectra by calling the servo module to move the arm and taking phototransistor readings at the relevant arduino pin. Finally, the `Post` module provides several useful postprocessing functions, including cropping and normalizing intensity readings of spectra, and converting from arm angle to wavelength using the blank data. This conversion uses linear interpolation of matched points from dynamic time warping (DTW) between the blank and reference spectra. It is up to you to become familiar with the relevant functions and their parameters in each module, and to track inputs and outputs with your filesystem responsibly.
+Before you can use the spectrometer, you will have to connect the board, creating an `ArduinoBoard` instance. The spectrometer has three major submodules: `Servo`, `Spectrometer`, and `Post`. The `Servo` module provides basic functionality to connect to and calibrate the servo motor. It will produce a LUT between the input arm angle and the output voltage reading. The `Spectrometer` module allows for measurement of intensity spectra by calling the servo module to move the arm and taking phototransistor readings at the relevant arduino pin. Finally, the `Post` module provides several useful postprocessing functions, including cropping and normalizing intensity readings of spectra, and converting from arm angle to wavelength using the blank data. This conversion uses either linear interpolation of matched points from dynamic time warping (DTW) between the blank and reference spectra (`calibrate`), or a straight-line fit through the matched peak positions (`calibratePeaks`), which is insensitive to peak heights. It is up to you to become familiar with the relevant functions and their parameters in each module, and to track inputs and outputs with your filesystem responsibly.
 
 The three sections that follow cover how the modules fit together, the lifecycle of the two calibrations, and the exact shape of the data structures that move between them. The worked examples come after.
 
@@ -453,10 +453,10 @@ Second, **DTW maps many angles onto one wavelength**, so the inverse is only def
 
 Both directions share `Post._calibration_arrays`, which resolves the calibration and coerces it to numpy arrays, so the two cannot drift apart and both behave identically whether they are handed a live calibration or one reloaded from JSON.
 
-## DTW is the only angle/wavelength mechanism
+## No Bragg's law: DTW or peak fitting
 The legacy MATLAB labs calibrated the instrument with Bragg's law: a `w2a.m` helper converted wavelength to diffraction angle through $\lambda = d\sin\theta$, using a hardcoded grating period, anchored on a peak the student read off a plot by hand.
 
-**That approach is deliberately not carried over, and there is no grating-period parameter anywhere in this package.** DTW calibration in `Post.calibrate` replaces it completely. The reasons: it needs no grating constant, no hand-picked peak, and no assumption that the arm pivots exactly on the grating — it matches the measured blank against the manufacturer's reference spectrum and derives the whole mapping from the curve shape. Adding a Bragg-law path back in would give two different answers to the same question, `angle2wavelength` and an `a2w`, which is exactly the redundancy this API avoids.
+**That approach is deliberately not carried over, and there is no grating-period parameter anywhere in this package.** Calibration against the reference spectrum (`Post.calibrate` with DTW, or `Post.calibratePeaks`, below) replaces it completely. The reasons: it needs no grating constant, no hand-picked peak, and no assumption that the arm pivots exactly on the grating — it matches the measured blank against the manufacturer's reference spectrum and derives the whole mapping from the curve shape. Adding a Bragg-law path back in would give two different answers to the same question, `angle2wavelength` and an `a2w`, which is exactly the redundancy this API avoids.
 
 To validate a calibration, do not reach for a grating period. Check it against itself and against the lamp:
 
@@ -465,6 +465,17 @@ To validate a calibration, do not reach for a grating period. Check it against i
 3. **Known peaks.** The calibrated blank's peaks must land where the LED datasheet says they do. On the example blank in `docs/examples/blank_good.json` the blue die peak comes out at 446 nm and the phosphor hump at 589 nm, spanning 404–720 nm overall — both physically right for a white LED.
 
 Failing (2) or (3) means recalibrate; there is no meaningful way to patch a bad DTW alignment after the fact.
+
+### Peak-based calibration: `Post.calibratePeaks`
+DTW matches curve *shapes*, so it is thrown off whenever the blank's relative peak heights differ from the datasheet's. The datasheet has the blue die and the phosphor hump at equal height. A real blank rarely does: the phototransistor is more sensitive in the red, and battery, LED and alignment all shift the ratio. `calibratePeaks` ignores heights entirely. It finds three features in both the blank (in degrees) and the reference (in nm): the blue peak, the phosphor peak, and the valley between them. It does this from peak *prominence* on a lightly smoothed, offset-subtracted copy, then refines each position to sub-sample precision with a local parabola. Finally it fits a straight line, wavelength = slope · angle + intercept, through the three pairs.
+
+```python
+blank = post.cropX(blank, "angle", None, 105)       # still crop the 0-order beam
+cal = post.calibratePeaks(blank, ref)               # raw counts are fine
+cal["slope"], cal["residuals"], cal["features"]     # ~ -12 nm/deg, residuals of a few nm
+```
+
+The returned dict has the same `angles` / `wavelengths` / `inverse` keys as DTW's. That means `angle2wavelength`, `wavelength2angle`, `addWavelength`, `save` and all three checks above work unchanged. Monotonicity and the round trip hold by construction. Residuals above about 5 nm mean a feature was misdetected, most often because the 0-order foot survived the crop and was counted as a peak.
 
 # Testing
 Inside `/test` you can find the unit tests for internal dev testing.
